@@ -1,0 +1,11 @@
+rsa 密钥
+
+root ca
+
+x509 csr 认证签名请求
+x509 签名
+
+https://learn.microsoft.com/zh-cn/azure/iot-hub/reference-x509-certificates
+
+openssl genpkey -out pop.key -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+openssl req -new -key pop.key -out pop.csr
