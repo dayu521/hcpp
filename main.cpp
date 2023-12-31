@@ -250,7 +250,7 @@ L:
 
 awaitable<void> send_session(std::shared_ptr<tcp_socket> client, std::shared_ptr<tcp_socket> server)
 {
-    std::string data(512, '\0');
+    std::string data(1024, '\0');
     asio::streambuf line_buff;
     try
     {
@@ -267,13 +267,13 @@ awaitable<void> send_session(std::shared_ptr<tcp_socket> client, std::shared_ptr
     }
     catch (std::exception &e)
     {
-        std::cout << e.what() << std::endl;
+        std::cout << "send_session "<<e.what() << std::endl;
     }
 }
 
 awaitable<void> receive_session(std::shared_ptr<tcp_socket> client, std::shared_ptr<tcp_socket> server)
 {
-    std::string data(512, '\0');
+    std::string data(1024, '\0');
     asio::streambuf line_buff;
     try
     {
@@ -290,7 +290,7 @@ awaitable<void> receive_session(std::shared_ptr<tcp_socket> client, std::shared_
     }
     catch (std::exception &e)
     {
-        std::cout << e.what() << std::endl;
+        std::cout <<"receive_session "<< e.what() << std::endl;
     }
 }
 
@@ -365,7 +365,7 @@ echo(tcp_socket socket)
             }
 
             // 进行代理
-            async_write(socket, asio::buffer("HTTP/1.1 200 ok\r\n\r\n"));
+            co_await async_write(socket, asio::buffer("HTTP/1.1 200 Connection Established\r\nProxy-agent: Node.js-Proxy\r\nConnection: keep-alive\r\n\r\n"));
             break;
         }
         // asio::io_context io_context(1);
@@ -378,6 +378,9 @@ echo(tcp_socket socket)
         auto [host, service] = target_endpoint;
         auto el = co_await re.async_resolve(host, service);
         auto xz = co_await asio::async_connect(*respond_sock, el);
+        auto addr=xz.address().to_string();
+        auto po=xz.port();
+        std::cout<<addr<<" "<<po<<endl;
         // 请求协程
         co_spawn(executor, send_session(request_sock, respond_sock),detached);
         // 响应协程
