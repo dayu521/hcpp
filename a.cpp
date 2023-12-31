@@ -4,6 +4,7 @@
 
 int main(int argc, char const *argv[])
 {
+    std::string xx{33,'a'};
     auto svl = "aaa.ccc.dddx..:666";
     std::regex host_reg(R"([\w\.]+(:(0|[1-9]\d{0,4}))?)");
     std::cmatch m;
