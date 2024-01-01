@@ -23,3 +23,6 @@ vscode
     Fold All Block Comments (Ctrl+K Ctrl+/) folds all regions that start with a block comment token.
 
     Ctrl+Shift+K 删除一行
+
+如果某个消息头field是多值消息,那么代理不能修改这些值的顺序
+https://www.rfc-editor.org/rfc/rfc2616#section-4.2
