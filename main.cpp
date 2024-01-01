@@ -97,26 +97,27 @@ struct RequestSvcInfo
     string port_;
 };
 
-std::pair<bool, std::string_view> check_req_line_1(string_view svl, RequestSvcInfo &ts)
+bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
 {
     // string_view svl = str_line;
-    string_view error = "";
+    // string_view error = "";
     //"CONNECT * HTTP/1.1\r\n";
     {
         auto method_end = svl.find_first_of(" ");
         if (method_end == string_view::npos)
         {
-            error = "HTTP/1.1 400 Bad Request";
             goto L;
         }
         ts.method_ = svl.substr(0, method_end);
+        assert(req_line_new.empty());
+        // 包含空格
+        req_line_new += svl.substr(0, method_end + 1);
         svl.remove_prefix(method_end + 1);
 
         auto uri_end = svl.find_first_of(" ");
 
         if (uri_end == std::string_view::npos)
         {
-            error = "HTTP/1.1 400 Bad Request";
             goto L;
         }
         auto endp_end = uri_end;
@@ -125,26 +126,26 @@ std::pair<bool, std::string_view> check_req_line_1(string_view svl, RequestSvcIn
             constexpr auto ll = sizeof("http://") - 1;
             if (svl.find_first_of("http://") == string_view::npos)
             {
-                error = "HTTP/1.1 400 Bad Request";
                 goto L;
             }
 
             svl.remove_prefix(ll);
             uri_end -= ll;
             endp_end -= ll;
-            auto last_slash = svl.find_first_of('/');
-            if (last_slash != string_view::npos)
+            auto slash_bengin = svl.find_first_of('/');
+            if (slash_bengin != string_view::npos)
             {
-                endp_end = last_slash;
+                endp_end = slash_bengin;
             }
+            // 请求uri改写完成
+            req_line_new += svl.substr(slash_bengin);
         }
 
-        std::regex endpoint_reg(R"(^([\w\.]+)(:(0|[1-9]\d{0,4}))?)");
+        std::regex endpoint_reg(R"(^([\w\.\-]+)(:(0|[1-9]\d{0,4}))?)");
         std::cmatch m;
         if (!std::regex_match(svl.begin(), svl.begin() + endp_end, m, endpoint_reg))
         {
             spdlog::debug("匹配endpoint_reg 正则表达式失败 输入为: {}", svl.substr(0, endp_end));
-            error = "HTTP/1.1 400 Bad Request";
             goto L;
         }
 
@@ -165,7 +166,6 @@ std::pair<bool, std::string_view> check_req_line_1(string_view svl, RequestSvcIn
             if (port > 65535)
             {
                 spdlog::debug("端口号不合法");
-                error = "HTTP/1.1 400 Bad Request";
                 goto L;
             }
             // 插入失败说明存在了
@@ -184,7 +184,7 @@ std::pair<bool, std::string_view> check_req_line_1(string_view svl, RequestSvcIn
         // 检查http协议版本
         if (!svl.starts_with("HTTP/"))
         {
-            error = "HTTP/1.1 405 Method Not Allowed";
+            // error = "HTTP/1.1 405 Method Not Allowed";
             goto L;
         }
         svl.remove_prefix(sizeof "HTTP/" - 1);
@@ -192,30 +192,22 @@ std::pair<bool, std::string_view> check_req_line_1(string_view svl, RequestSvcIn
 
         if (http_ver_end == std::string_view::npos)
         {
-            error = "HTTP/1.1 400 Bad Request";
             goto L;
         }
         auto http_ver = svl.substr(0, http_ver_end);
-        std::regex digit(R"(^\d{1,5}\.\d{1,10}$)");
+        static std::regex digit(R"(^\d{1,5}\.\d{1,10}$)");
         if (!std::regex_match(http_ver.begin(), http_ver.end(), digit))
         {
             spdlog::debug("http 协议版本 正则表达式匹配不正确");
-            error = "HTTP/1.1 400 Bad Request";
             goto L;
         }
         assert(http_ver_end + 1 <= svl.size());
         svl.remove_prefix(http_ver_end + 2);
         assert(svl.size() == 0);
     }
+    return true;
 L:
-    if (error == "")
-    {
-        return {true, error};
-    }
-    else
-    {
-        return {false, error};
-    }
+    return false;
 }
 
 inline std::regex endpoint_reg{R"(^([\w\.]+)(:(0|[1-9]\d{0,4}))?$)"};
@@ -229,6 +221,7 @@ std::pair<bool, std::string_view> parser_header(string_view svl, headers &h)
     string_view error;
     while (svl.size() > 0)
     {
+        auto svl_old = svl;
         auto name_end = svl.find_first_of(": ");
         if (name_end == string_view::npos)
         {
@@ -238,12 +231,19 @@ std::pair<bool, std::string_view> parser_header(string_view svl, headers &h)
         svl.remove_prefix(name_end + 2);
 
         // 找到所有值
-        string val;
         auto val_end = svl.find_first_of("\r\n");
-        if (name_end == string_view::npos)
+        if (val_end == string_view::npos)
         {
             goto L;
         }
+        svl_old = svl_old.substr(0, name_end + 2 + val_end + 2);
+        if (name == "Proxy-Connection")
+        {
+            continue;
+        }
+        h[name] = svl_old;
+
+        string val;
         val += svl.substr(0, val_end);
         svl.remove_prefix(val_end + 2);
         // 如果可能的结束点跟随" ",则它不是真正的结束点
@@ -259,13 +259,12 @@ std::pair<bool, std::string_view> parser_header(string_view svl, headers &h)
             val += svl.substr(0, val_end);
             svl.remove_prefix(val_end + 2);
         }
-        // 我们认为val中的多值都会是空白分割的,注意,分割空白之后的空白都是空白的值
-
-        if (auto [it, ok] = h.emplace(name, val); !ok)
-        {
-            h[name] += " ";
-            h[name] += val;
-        }
+        // // 我们认为val中的多值都会是空白分割的,注意,分割空白之后的空白都是空白的值
+        // if (auto [it, ok] = h.emplace(name, val); !ok)
+        // {
+        //     h[name] += " ";
+        //     h[name] += val;
+        // }
     }
 T:
     return {true, error};
@@ -274,10 +273,10 @@ L:
     return {false, error};
 }
 
-awaitable<void> send_session(std::shared_ptr<tcp_socket> client, std::shared_ptr<tcp_socket> server, string req_msg)
+awaitable<void> send_session(std::shared_ptr<tcp_socket> client, std::shared_ptr<tcp_socket> server)
 {
     // 不需要等待
-    asio::async_write(*client, asio::buffer(req_msg));
+    // auto xd = co_await asio::async_write(*server, asio::buffer(req_msg));
 
     std::string data(1024, '\0');
     asio::streambuf line_buff;
@@ -334,7 +333,7 @@ awaitable<void> receive_session(std::shared_ptr<tcp_socket> client, std::shared_
                 std::cout << "server->async_read_some " << e.what() << std::endl;
             }
 
-            std::cout << "请求数据 " << data << std::endl;
+            std::cout << "响应数据 " << data << std::endl;
             try
             {
                 co_await asio::async_write(*client, asio::buffer(data, n));
@@ -367,101 +366,147 @@ echo(tcp_socket socket)
     try
     {
         char data[1024];
-        asio::streambuf line_buff;
         using spdlog::debug;
         using std::cout, std::endl;
         // std::set<string> target_endpoint_set;
-        string xx;
-        RequestSvcInfo target_endpoint;
+        // string xx;
+
+        std::map<string, std::shared_ptr<tcp_socket>> cache_sock;
         for (;;)
         {
 
             // 这里不用 socket.async_read_some(asio::buffer(data));
-            
-            //获取请求头部分
+
+            RequestSvcInfo target_endpoint;
+            asio::streambuf line_buff;
+            string req_body_before{};
+            string req_uri{};
+            headers h;
+            // 获取所有请求头部分
             auto n = co_await asio::async_read_until(socket, line_buff, "\r\n\r\n");
 
-            //Fixme 有问题
-
-            std::istream is(&line_buff);
-            string req_line(n, '\0');
-            asio::buffer_copy(asio::buffer(req_line), line_buff.data(), n);
-            std::cout << req_line << std::endl;
+            // std::istream is(&line_buff);
+            req_body_before.resize(n);
+            asio::buffer_copy(asio::buffer(req_body_before), line_buff.data(), n);
+            std::cout << req_body_before << std::endl;
 
             // line_buff.consume(fle + 2);
-            if (auto [ok, error] = check_req_line_1({req_line.data(), req_line.find_first_of("\r\n")}, target_endpoint); !ok)
+            // 第一行结尾,不包含
+            auto efl_1st = req_body_before.find_first_of("\r\n") + 2;
+            if (!check_req_line_1({req_body_before.data(), efl_1st}, target_endpoint, req_uri))
             {
                 debug("检查请求行失败");
-                co_await async_write(socket, asio::buffer(std::string(error) + "\r\n\r\n"));
-                socket.close();
+                co_await async_write(socket, asio::buffer("HTTP/1.1 400 Bad Request\r\n\r\n"));
                 co_return;
             }
 
             // 包含前面的行标记,这样才能与下面组成两个行标记
-            string header_line{};
-            if (auto left_n = line_buff.size(); left_n > 0)
-            {
-                header_line.resize(left_n);
-                // asio::buffer_copy
-                asio::buffer_copy(asio::buffer(header_line), line_buff.data() + req_line.size(), left_n);
-            }
-            // 检查剩下行
-            char str_some[256];
+            // string header_line{};
+            // if (auto left_n = line_buff.size(); left_n > 0)
+            // {
+            //     header_line.resize(left_n);
+            //     // asio::buffer_copy
+            //     asio::buffer_copy(asio::buffer(header_line), line_buff.data() + req_line.size(), left_n);
+            // }
+            // // 检查剩下行
+            // char str_some[256];
 
-            while (!header_line.ends_with("\r\n\r\n"))
-            {
-                // 短路求值,减少比较次数
-                if (header_line.size() <= 2 && header_line == "\r\n") // 没有其他请求了
-                {
-                    break;
-                }
-                auto nn = co_await socket.async_read_some(asio::buffer(str_some, sizeof(str_some)));
-                header_line.append(str_some, nn);
-                // str_some.clear();
-            }
-
-            std::cout << header_line << std::endl;
+            // while (!header_line.ends_with("\r\n\r\n"))
+            // {
+            //     // 短路求值,减少比较次数
+            //     [[unlikely]]if (header_line.size() <= 2 && header_line == "\r\n") // 没有其他请求了
+            //     {
+            //         break;
+            //     }
+            //     auto nn = co_await socket.async_read_some(asio::buffer(str_some, sizeof(str_some)));
+            //     header_line.append(str_some, nn);
+            //     // str_some.clear();
+            // }
+            string_view req_header(req_body_before.begin() + efl_1st, req_body_before.begin() + req_body_before.size() - 2 /*去掉了结尾的CRLF*/);
+            spdlog::debug("\n{}", req_header);
             // 所有请求头部分都读完了
-            headers h;
-            if (auto [ok, error] = parser_header({header_line.begin(), header_line.begin() + header_line.size() - 2 /*去掉了结尾的CRLF*/}, h); !ok)
+            if (auto [ok, error] = parser_header(req_header, h); !ok)
             {
                 debug("解析请求头失败");
                 co_await async_write(socket, asio::buffer(std::string(error) + "\r\n\r\n"));
-                socket.close();
                 co_return;
             }
-            if (target_endpoint.method_ == "CONNECT")
+
+            const auto &[method, host, service] = target_endpoint;
+            spdlog::debug("{}:{}", host, service);
+
+            auto cache_sock_key = host + ":" + service;
+
+            if (target_endpoint.method_ == "CONNECT" || !cache_sock.contains(cache_sock_key)) // TODO 这里判断哪些连接被缓存,应该多个ip判断
             {
-                // 进行代理
-                co_await async_write(socket, asio::buffer("HTTP/1.1 200 Connection Established\r\nProxy-agent: Node.js-Proxy\r\nConnection: keep-alive\r\n\r\n"));
+                auto executor = socket.get_executor();
+
+                tcp_resolver re{executor};
+
+                auto el = co_await re.async_resolve(host, service);
+
+                if (spdlog::get_level() == spdlog::level::debug)
+                {
+                    for (auto &&ed : el)
+                    {
+                        spdlog::debug("{}:{}", ed.endpoint().address().to_string(), ed.endpoint().port());
+                    }
+                }
+                auto respond_sock = std::make_shared<tcp_socket>(executor);
+                auto conn_name = co_await asio::async_connect(*respond_sock, el);
+
+                if (target_endpoint.method_ == "CONNECT")
+                {
+                    co_await async_write(socket, asio::buffer("HTTP/1.1 200 Connection Established\r\nProxy-agent: Node.js-Proxy\r\nConnection: keep-alive\r\n\r\n"));
+                    auto request_sock = std::make_shared<tcp_socket>(std::move(socket));
+                    co_spawn(executor, send_session(request_sock, respond_sock), detached);
+                    // 响应协程
+                    co_spawn(executor, receive_session(request_sock, respond_sock), detached);
+                    co_return;
+                }
+                else
+                {
+                    cache_sock.insert({cache_sock_key, respond_sock});
+                }
             }
-            break;
+
+            auto sock = cache_sock[cache_sock_key];
+            if (!sock->is_open())
+            {
+                spdlog::debug("sock未打开");
+            }
+            // 请求路径,代理头都已修改过
+            for (auto &&header : h)
+            {
+                req_uri += header.second;
+            }
+            spdlog::debug("\n{}",req_uri);
+            co_await async_write(*sock, asio::buffer(req_uri));
+            if (h.contains("Content-Length")) // TODO 或者其他不可知的长度时
+            {
+                string cl = h["Content-Length"];
+                static std::regex digit(R"(0|[1-9]\d{0,10})");
+                std::smatch m;
+                if (!std::regex_search(cl, m, digit))
+                {
+                    debug("Content-Length字段不合法 {}", cl);
+                    co_return;
+                }
+
+                auto total_bytes = std::stoul(m[0].str());
+                auto n = 0;
+                while (n < total_bytes)
+                {
+                    auto x = co_await socket.async_read_some(asio::buffer(data));
+                    n += x;
+                    co_await async_write(*sock, asio::buffer(data, x));
+                }
+            }
+            string bf;
+            // auto bbf=asio::buffer(bf);
+            co_await sock->async_read_some(asio::buffer(bf));
+            co_await asio::async_write(socket, asio::buffer(bf));
         }
-        // asio::io_context io_context(1);
-        auto executor = co_await this_coro::executor;
-
-        auto request_sock = std::make_shared<tcp_socket>(std::move(socket));
-        auto respond_sock = std::make_shared<tcp_socket>(executor);
-
-        tcp_resolver re{executor};
-        const auto &[method, host, service] = target_endpoint;
-        auto el = co_await re.async_resolve(host, service);
-        cout << host << ":" << service << endl;
-        for (auto &&ed : el)
-        {
-            cout << ed.endpoint().address() << ":" << ed.endpoint().port() << endl;
-        }
-        auto xz = co_await asio::async_connect(*respond_sock, el);
-        auto addr = xz.address().to_string();
-        auto po = xz.port();
-        // std::cout<<addr<<" "<<po<<endl;
-
-        string init_data(line_buff.size(), '\0');
-        asio::buffer_copy(asio::buffer(init_data), line_buff.data());
-        // 请求协程
-        co_spawn(executor, send_session(request_sock, respond_sock, std::move(init_data)), detached);
-        // 响应协程
-        co_spawn(executor, receive_session(request_sock, respond_sock), detached);
     }
     catch (std::exception &e)
     {
