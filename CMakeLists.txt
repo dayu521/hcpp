@@ -5,9 +5,22 @@ set(CMAKE_CXX_STANDARD 20)
 
 find_package(spdlog REQUIRED)
 
-add_executable(hcpp main.cpp)
+set(appname ${PROJECT_NAME})
 
-target_link_libraries(hcpp PRIVATE spdlog::spdlog)
+file(GLOB module_src  "src/module/*.ixx" )
+file(GLOB src  "src/*.cpp" )
+
+# message(${src})
+
+add_executable(${appname} main.cpp ${src})
+
+target_include_directories(${appname} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(${appname} PRIVATE spdlog::spdlog)
+
+# target_sources(${appname} PUBLIC  
+# FILE_SET CXX_MODULES 
+# FILES  ${module_src})
 
 add_executable(a2 a.cpp)
 

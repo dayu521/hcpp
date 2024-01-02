@@ -2,6 +2,8 @@
 #include <string>
 #include <iostream>
 
+using namespace std;
+
 int main(int argc, char const *argv[])
 {
     std::string xx{33,'a'};
@@ -17,5 +19,9 @@ int main(int argc, char const *argv[])
     {
         std::cout << sm.str() << std::endl;
     }
+    std::string ll="abc\r\n";
+    cout<<ll.find("\r\n",0,2)<<endl;
+
+    std::string const s = "This is a string"; 
     return 0;
 }

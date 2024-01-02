@@ -11,6 +11,9 @@ openssl genpkey -out pop.key -algorithm RSA -pkeyopt rsa_keygen_bits:2048
 openssl req -new -key pop.key -out pop.csr
 
 
+快捷键
+https://code.visualstudio.com/docs/getstarted/keybindings#_keyboard-shortcuts-reference
+
 vscode 
     Fold (Ctrl+Shift+[) folds the innermost uncollapsed region at the cursor.
     Unfold (Ctrl+Shift+]) unfolds the collapsed region at the cursor.
@@ -23,6 +26,9 @@ vscode
     Fold All Block Comments (Ctrl+K Ctrl+/) folds all regions that start with a block comment token.
 
     Ctrl+Shift+K 删除一行
-
+    Ctrl+L 选择当前行
+    Shift+Alt+Right     扩大选择块
+    Shift+Alt+Left      减小选择块
+    
 如果某个消息头field是多值消息,那么代理不能修改这些值的顺序
 https://www.rfc-editor.org/rfc/rfc2616#section-4.2
