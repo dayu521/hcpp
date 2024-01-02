@@ -14,7 +14,7 @@ file(GLOB src  "src/*.cpp" )
 
 add_executable(${appname} main.cpp ${src})
 
-target_include_directories(${appname} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${appname} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(${appname} PRIVATE spdlog::spdlog)
 

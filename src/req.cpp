@@ -5,6 +5,9 @@
 
 #include "parser.h"
 
+inline std::regex endpoint_reg{R"(^([\w\.]+)(:(0|[1-9]\d{0,4}))?$)"};
+inline std::regex valreg{R"(^[\w]$)"};
+
 bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
 {
     // string_view svl = str_line;
@@ -61,11 +64,11 @@ bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
             goto L;
         }
 
-        if (spdlog::get_level() == spdlog::level::debug)
+        if (spdlog::get_level() == spdlog::level::trace)
         {
             for (int i = 0; auto &&sm : m)
             {
-                spdlog::debug("    {}", sm.str());
+                spdlog::trace("    {}", sm.str());
                 // std::cout << "    " << sm.str() << std::endl;
             }
         }
