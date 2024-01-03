@@ -1,6 +1,6 @@
 #include <spdlog/spdlog.h>
-#include <regex>
 
+#include <regex>
 #include <cctype>
 
 #include "parser.h"
@@ -43,7 +43,7 @@ bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
             svl.remove_prefix(ll);
             uri_end -= ll;
             endp_end -= ll;
-            auto slash_bengin = svl.find_first_of('/');
+            auto slash_bengin = svl.substr(0,uri_end).find_first_of('/');
             if (slash_bengin != string_view::npos)
             {
                 endp_end = slash_bengin;
@@ -53,6 +53,7 @@ bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
             else
             {
                 req_line_new += '/';
+                req_line_new+=svl.substr(endp_end);
             }
         }
 
@@ -149,10 +150,7 @@ bool parser_header(string_view svl, headers &h)
             goto L;
         }
         svl_old = svl_old.substr(0, name_end + 2 + val_end + 2);
-        // if (name != "Proxy-Connection")
-        // {
-        //      h[name] = svl_old;
-        // }
+        //normalize成一般形式,易于比较
         h[to_lower(name)] = svl_old;
 
         string val;

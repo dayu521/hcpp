@@ -47,7 +47,7 @@ awaitable<void> receive_session(tunnel_session ts)
 {
     auto & [client,server,ser_info]=ts;
 
-    char data[1024];
+    char data[1024*256];
     std::size_t total_n = 0;
 
     for (;;)

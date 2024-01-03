@@ -19,6 +19,7 @@
 #include <asio/use_awaitable.hpp>
 
 #include <spdlog/spdlog.h>
+#include <spdlog/cfg/env.h>
 
 #include "proxy.h"
 
@@ -51,6 +52,7 @@ int main()
     try
     {
         spdlog::set_level(spdlog::level::debug);
+        spdlog::cfg::load_env_levels();
         spdlog::debug("hello spdlog");
         asio::io_context io_context(1);
 
