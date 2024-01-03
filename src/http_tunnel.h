@@ -6,12 +6,14 @@
 #include <memory>
 
 using asio::use_awaitable_t;
+using asio::awaitable;
+
 using asio::ip::tcp;
 
 using tcp_acceptor = use_awaitable_t<>::as_default_on_t<tcp::acceptor>;
 using tcp_socket = use_awaitable_t<>::as_default_on_t<tcp::socket>;
 
-using asio::awaitable;
+
 
 struct tunnel_session
 {
