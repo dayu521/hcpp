@@ -95,8 +95,6 @@ echo(tcp_socket socket)
     {
         char data[1024];
         using spdlog::debug;
-        // std::set<string> target_endpoint_set;
-        // string xx;
 
         std::map<string, std::shared_ptr<tcp_socket>> cache_sock;
         for (;;)
@@ -124,39 +122,18 @@ echo(tcp_socket socket)
             if (!check_req_line_1({req_body_before.data(), efl_1st}, target_endpoint, req_uri))
             {
                 debug("检查请求行失败");
-                co_await async_write(socket, asio::buffer("HTTP/1.1 400 Bad Request\r\n\r\n"));
+                co_await async_write(socket, asio::buffer(string_view("HTTP/1.1 400 Bad Request\r\n\r\n")));
                 continue;
             }
             spdlog::debug("请求的远程服务 {}:{}", target_endpoint.host_, target_endpoint.port_);
-            // 包含前面的行标记,这样才能与下面组成两个行标记
-            // string header_line{};
-            // if (auto left_n = line_buff.size(); left_n > 0)
-            // {
-            //     header_line.resize(left_n);
-            //     // asio::buffer_copy
-            //     asio::buffer_copy(asio::buffer(header_line), line_buff.data() + req_line.size(), left_n);
-            // }
-            // // 检查剩下行
-            // char str_some[256];
 
-            // while (!header_line.ends_with("\r\n\r\n"))
-            // {
-            //     // 短路求值,减少比较次数
-            //     [[unlikely]]if (header_line.size() <= 2 && header_line == "\r\n") // 没有其他请求了
-            //     {
-            //         break;
-            //     }
-            //     auto nn = co_await socket.async_read_some(asio::buffer(str_some, sizeof(str_some)));
-            //     header_line.append(str_some, nn);
-            //     // str_some.clear();
-            // }
             string_view req_header(req_body_before.begin() + efl_1st, req_body_before.begin() + n - 2 /*去掉了结尾的CRLF*/);
             spdlog::debug("请求头部分\n{}", req_header);
             // 所有请求头部分都读完了
             if (!parser_header(req_header, h))
             {
                 debug("解析请求头失败");
-                co_await async_write(socket, asio::buffer("HTTP/1.1 400 Bad Request\r\n\r\n"));
+                co_await async_write(socket, asio::buffer(string_view("HTTP/1.1 400 Bad Request\r\n\r\n")));
                 continue;
             }
 
@@ -195,11 +172,14 @@ echo(tcp_socket socket)
                 {
 
                     auto request_sock = std::make_shared<tcp_socket>(std::move(socket));
-                    co_spawn(executor, send_session(request_sock, respond_sock), detached);
+                    co_spawn(executor, send_session({request_sock, respond_sock,target_endpoint.host_}), detached);
                     // 响应协程
-                    co_spawn(executor, receive_session(request_sock, respond_sock), detached);
+                    co_spawn(executor, receive_session({request_sock, respond_sock,target_endpoint.host_}), detached);
                     debug("已建立http tunnel,当前协程退出,释放所有其他socket");
-                    // co_await async_write(*request_sock, asio::buffer("HTTP/1.1 200 OK\r\nProxy-agent: Node.js-Proxy\r\n\r\n"));
+
+                    /// buffer传递原始字符串时一定要指定size大小,因为他会把普通字符串的最后的空字符也发送
+                    // std::string r = "HTTP/1.0 200 Connection established\r\n\r\n";
+                    co_await async_write(*request_sock, asio::buffer(std::string_view("HTTP/1.0 200 Connection established\r\n\r\n")));
                     co_return;
                 }
                 else
