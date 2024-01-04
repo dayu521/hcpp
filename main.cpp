@@ -54,7 +54,8 @@ int main()
         spdlog::set_level(spdlog::level::debug);
         spdlog::cfg::load_env_levels();
         spdlog::debug("hello spdlog");
-        asio::io_context io_context(1);
+        asio::io_context io_context;
+        // asio::io_context io_context(ASIO_CONCURRENCY_HINT_UNSAFE_IO);
 
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto)

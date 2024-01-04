@@ -9,6 +9,8 @@
 #include <asio/write.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/connect.hpp>
+#include <asio/steady_timer.hpp>
+#include <asio/experimental/awaitable_operators.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -19,6 +21,11 @@
 using asio::co_spawn;
 using asio::detached;
 using tcp_resolver = use_awaitable_t<>::as_default_on_t<tcp::resolver>;
+using steady_timer = use_awaitable_t<>::as_default_on_t<asio::steady_timer>;
+
+using namespace asio::experimental::awaitable_operators;
+
+using namespace asio::buffer_literals;
 
 awaitable<std::size_t> transfer_message(tcp_socket &input, tcp_socket &output, std::size_t total_bytes)
 {
@@ -32,6 +39,8 @@ awaitable<std::size_t> transfer_message(tcp_socket &input, tcp_socket &output, s
     }
     co_return nx;
 }
+
+static thread_local std::unordered_map<string, asio::ip::basic_resolver_results<asio::ip::tcp>> local_dns;
 
 awaitable<void> read_http_input(tcp_socket socket)
 {
@@ -56,13 +65,19 @@ awaitable<void> read_http_input(tcp_socket socket)
             size_t send_n = 0;
             size_t receive_n = 0;
             // 获取所有请求头部分
-            auto n = co_await asio::async_read_until(socket, line_buff, "\r\n\r\n");
+            steady_timer t(socket.get_executor());
+            t.expires_after(std::chrono::seconds(10));
+            std::variant<std::size_t, std::monostate> rt = co_await (asio::async_read_until(socket, line_buff, "\r\n\r\n") || t.async_wait());
+            if (rt.index() != 0)
+            {
+                co_return;
+            }
+            auto n = std::get<0>(rt);
             send_n += n;
 
             // std::istream is(&line_buff);
             req_body_before.resize(line_buff.size());
             asio::buffer_copy(asio::buffer(req_body_before), line_buff.data());
-            debug("请求头 async_read_until \n{}", req_body_before);
             // std::cout << req_body_before << std::endl;
 
             // line_buff.consume(fle + 2);
@@ -71,9 +86,10 @@ awaitable<void> read_http_input(tcp_socket socket)
             if (!check_req_line_1({req_body_before.data(), efl_1st}, target_endpoint, req_uri))
             {
                 spdlog::info("检查请求行失败");
-                co_await async_write(socket, asio::buffer(string_view("HTTP/1.1 400 Bad Request\r\n\r\n")));
+                co_await async_write(socket, asio::buffer("HTTP/1.1 400 Bad Request\r\n\r\n"_buf));
                 continue;
             }
+            debug("请求行\n{}", string_view({req_body_before.data(), efl_1st}));
             spdlog::debug("请求的远程服务 {}:{}", target_endpoint.host_, target_endpoint.port_);
 
             string_view req_header(req_body_before.begin() + efl_1st, req_body_before.begin() + n - 2 /*去掉了结尾的CRLF*/);
@@ -82,40 +98,46 @@ awaitable<void> read_http_input(tcp_socket socket)
             if (!parser_header(req_header, h))
             {
                 spdlog::info("解析请求头失败");
-                co_await async_write(socket, asio::buffer(string_view("HTTP/1.1 400 Bad Request\r\n\r\n")));
+                co_await async_write(socket, asio::buffer("HTTP/1.1 400 Bad Request\r\n\r\n"_buf));
                 continue;
             }
 
             const auto &[method, host, service] = target_endpoint;
 
-            auto cache_sock_key = host + ":" + service;
+            auto remote_service = host + ":" + service;
 
-            if (method == "CONNECT" || !keep_alive_sock.contains(cache_sock_key)) // TODO 这里判断哪些连接被缓存,应该多个ip判断
+            if (method == "CONNECT" || !keep_alive_sock.contains(remote_service)) // TODO 这里判断哪些连接被缓存,应该多个ip判断
             {
                 // debug("开始与远程端点建立连接:{}",target_endpoint.host_);
                 auto executor = socket.get_executor();
 
-                tcp_resolver re{executor};
-
-                auto el = co_await re.async_resolve(host, service);
-
-                debug("解析远程端点:{}", host);
-
-                if (spdlog::get_level() == spdlog::level::debug)
+                auto rip = local_dns.find(remote_service);
+                if (rip == local_dns.end())
                 {
-                    for (auto &&ed : el)
+                    tcp_resolver re{executor};
+
+                    auto el = co_await re.async_resolve(host, service);
+                    debug("解析远程端点:{}", host);
+
+                    if (spdlog::get_level() == spdlog::level::debug)
                     {
-                        spdlog::debug("{}:{}", ed.endpoint().address().to_string(), ed.endpoint().port());
+                        for (auto &&ed : el)
+                        {
+                            spdlog::debug("{}:{}", ed.endpoint().address().to_string(), ed.endpoint().port());
+                        }
                     }
+                    rip=local_dns.insert({remote_service, el}).first;
                 }
+                debug("当前缓存dns查询 {}",local_dns.size());
+
                 auto respond_sock = std::make_shared<tcp_socket>(executor);
-                auto conn_name = co_await asio::async_connect(*respond_sock, el);
+                auto conn_name = co_await asio::async_connect(*respond_sock, rip->second);
 
                 auto led = respond_sock->local_endpoint();
                 auto redp = respond_sock->remote_endpoint();
                 debug("已与远程端点连接");
-                debug("选择的 remote_endpoint-> {}:{}", redp.address().to_string(), redp.port());
-                debug("选择的 local_endpoint-> {}:{}", led.address().to_string(), led.port());
+                debug("{} -> {}:{}", remote_service, redp.address().to_string(), redp.port());
+                debug("localhost -> {}:{}", led.address().to_string(), led.port());
 
                 if (method == "CONNECT")
                 {
@@ -127,18 +149,18 @@ awaitable<void> read_http_input(tcp_socket socket)
 
                     /// buffer传递原始字符串时一定要指定size大小,因为他会把普通字符串的最后的空字符也发送
                     // std::string r = "HTTP/1.0 200 Connection established\r\n\r\n";
-                    co_await async_write(*request_sock, asio::buffer(std::string_view("HTTP/1.0 200 Connection established\r\n\r\n")));
+                    co_await async_write(*request_sock, asio::buffer("HTTP/1.0 200 Connection established\r\n\r\n"_buf));
                     debug("已建立http tunnel");
                     co_return;
                 }
                 else
                 {
-                    keep_alive_sock.insert({cache_sock_key, respond_sock});
+                    keep_alive_sock.insert({remote_service, respond_sock});
                     debug("连接管理增加新的远程连接:{}", host);
                 }
             }
 
-            auto sock = keep_alive_sock[cache_sock_key];
+            auto sock = keep_alive_sock[remote_service];
             if (!sock->is_open())
             {
                 spdlog::debug("sock未打开");
@@ -225,7 +247,7 @@ awaitable<void> read_http_input(tcp_socket socket)
 
                 receive_n += co_await transfer_message(*sock, socket, total_bytes - (response_header.size() - n2));
             }
-            debug("http请求完成,客户端发送大小:{}kb,服务器返回大小:{}kb",send_n/1024,receive_n/1024);
+            debug("http请求完成,客户端发送大小:{}kb,服务器返回大小:{}kb", send_n / 1024, receive_n / 1024);
         }
     }
     catch (std::exception &e)

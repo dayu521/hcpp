@@ -61,7 +61,7 @@ bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
         std::cmatch m;
         if (!std::regex_match(svl.begin(), svl.begin() + endp_end, m, endpoint_reg))
         {
-            spdlog::debug("匹配endpoint_reg 正则表达式失败 输入为: {}", svl.substr(0, endp_end));
+            spdlog::error("匹配endpoint_reg 正则表达式失败 输入为: {}", svl.substr(0, endp_end));
             goto L;
         }
 
@@ -81,7 +81,7 @@ bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
             port = std::stoi(m[3].str());
             if (port > 65535)
             {
-                spdlog::debug("端口号不合法");
+                spdlog::error("端口号不合法");
                 goto L;
             }
             // 插入失败说明存在了
@@ -114,7 +114,7 @@ bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
         static std::regex digit(R"(^\d{1,5}\.\d{1,10}$)");
         if (!std::regex_match(http_ver.begin(), http_ver.end(), digit))
         {
-            spdlog::debug("http 协议版本 正则表达式匹配不正确");
+            spdlog::error("http 协议版本 正则表达式匹配不正确");
             goto L;
         }
         assert(http_ver_end + 1 <= svl.size());

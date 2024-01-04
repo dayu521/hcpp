@@ -10,7 +10,7 @@
 
 awaitable<void> send_session(tunnel_session ts)
 {
-    auto & [client,server,ser_info]=ts;
+    auto &[client, server, ser_info] = ts;
 
     char data[1024];
     std::size_t total_n = 0;
@@ -23,31 +23,37 @@ awaitable<void> send_session(tunnel_session ts)
         {
             n = co_await client->async_read_some(asio::buffer(data, sizeof(data)));
         }
-        catch (std::exception &e)
+        catch (asio::system_error &e)
         {
             spdlog::debug("client->async_read_some \n{}", e.what());
             break;
         }
         // spdlog::debug("请求数据\n{}", dv);
+
         try
         {
             co_await asio::async_write(*server, asio::buffer(data, n));
         }
         catch (std::exception &e)
         {
-            spdlog::debug("async_write(*server \n{}", e.what());
+            spdlog::debug("写异常 {} {}", ser_info, e.what());
             break;
         }
         total_n += n;
+        if (n == 0)
+        {
+            spdlog::debug("客户端关闭连接");
+            break;
+        }
     }
-    spdlog::debug("当前已写: {} kb -> 写 {} 关闭", total_n / 1024,ser_info);
+    spdlog::debug("当前已写: {} kb -> 写 {} 关闭", total_n / 1024, ser_info);
 }
 
 awaitable<void> receive_session(tunnel_session ts)
 {
-    auto & [client,server,ser_info]=ts;
+    auto &[client, server, ser_info] = ts;
 
-    char data[1024*256];
+    char data[1024 * 256];
     std::size_t total_n = 0;
 
     for (;;)
@@ -59,7 +65,7 @@ awaitable<void> receive_session(tunnel_session ts)
         }
         catch (std::exception &e)
         {
-            spdlog::debug("server->async_read_some \n{}", e.what());
+            spdlog::debug("读异常 {} {}", ser_info, e.what());
             break;
         }
 
@@ -74,17 +80,22 @@ awaitable<void> receive_session(tunnel_session ts)
             break;
         }
         total_n += n;
+        if (n == 0)
+        {
+            spdlog::debug("{}关闭连接",ser_info);
+            break;
+        }
     }
-    spdlog::debug("当前已读: {} kb -> 读 {} 关闭", total_n / 1024,ser_info);
+    spdlog::debug("当前已读: {} kb -> 读 {} 关闭", total_n / 1024, ser_info);
 }
 
 awaitable<void> double_session(std::shared_ptr<tcp_socket> client, std::shared_ptr<tcp_socket> server)
 {
-    std::string data(1024, '\0');
-    for (;;)
-    {
-        std::size_t n = 0;
-        n = co_await client->async_read_some(asio::buffer(data, data.size()));
-    }
-    co_return;
+    // std::string data(1024, '\0');
+    // for (;;)
+    // {
+    //     std::size_t n = 0;
+    //     n = co_await client->async_read_some(asio::buffer(data, data.size()));
+    // }
+    // co_return;
 }

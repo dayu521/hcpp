@@ -24,5 +24,7 @@ target_link_libraries(${appname} PRIVATE spdlog::spdlog)
 
 add_executable(a2 a.cpp)
 
+add_subdirectory(test)
+
 
 

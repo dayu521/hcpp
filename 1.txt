@@ -1,9 +1,17 @@
 rsa 密钥
-
-root ca
+    它的持有者可以使用它创建认证签名请求,然后向ca中心进行认证
 
 x509 csr 认证签名请求
+    请求认证中心给一个认证.请求中包含请求者的信息以及它的公钥
+
 x509 签名
+    证书认证中心用自己的私钥签名csr请求,生成crt证书
+
+crt
+    获得的证书,当客户端发起tls通讯时,服务端把这个证书发送给他们
+
+root ca
+    证书认证中心的公钥,客户端保存了各个认证中心的公钥,用来确认收到的证书
 
 https://learn.microsoft.com/zh-cn/azure/iot-hub/reference-x509-certificates
 
