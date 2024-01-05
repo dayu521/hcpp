@@ -1,0 +1,47 @@
+rsa 密钥
+    它的持有者可以使用它创建认证签名请求,然后向ca中心进行认证
+
+x509 csr 认证签名请求
+    请求认证中心给一个认证.请求中包含请求者的信息以及它的公钥
+
+x509 签名
+    证书认证中心用自己的私钥签名csr请求,生成crt证书
+
+crt
+    获得的证书,当客户端发起tls通讯时,服务端把这个证书发送给他们
+
+root ca
+    证书认证中心的公钥,客户端保存了各个认证中心的公钥,用来确认收到的证书
+
+https://learn.microsoft.com/zh-cn/azure/iot-hub/reference-x509-certificates
+
+openssl genpkey -out pop.key -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+openssl req -new -key pop.key -out pop.csr
+
+
+快捷键
+https://code.visualstudio.com/docs/getstarted/keybindings#_keyboard-shortcuts-reference
+
+vscode 
+    Fold (Ctrl+Shift+[) folds the innermost uncollapsed region at the cursor.
+    Unfold (Ctrl+Shift+]) unfolds the collapsed region at the cursor.
+    Toggle Fold (Ctrl+K Ctrl+L) folds or unfolds the region at the cursor.
+    Fold Recursively (Ctrl+K Ctrl+[) folds the innermost uncollapsed region at the cursor and all regions inside that region.
+    Unfold Recursively (Ctrl+K Ctrl+]) unfolds the region at the cursor and all regions inside that region.
+    Fold All (Ctrl+K Ctrl+0) folds all regions in the editor.
+    Unfold All (Ctrl+K Ctrl+J) unfolds all regions in the editor.
+    Fold Level X (Ctrl+K Ctrl+2 for level 2) folds all regions of level X, except the region at the current cursor position.
+    Fold All Block Comments (Ctrl+K Ctrl+/) folds all regions that start with a block comment token.
+
+    Ctrl+Shift+K 删除一行
+    Ctrl+L 选择当前行
+    Shift+Alt+Right     扩大选择块
+    Shift+Alt+Left      减小选择块
+    
+如果某个消息头field是多值消息,那么代理不能修改这些值的顺序
+https://www.rfc-editor.org/rfc/rfc2616#section-4.2
+
+
+协程内,协程切换时,一定不能持有锁!!
+    如何解决? 获取锁的协程,在暂停执行时,它所在的线程不允许再执行其他的协程.
+        协程执行器一定得知道协程持有哪些锁,这要求应用程序需要告诉执行器它获得的锁
