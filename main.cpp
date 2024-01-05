@@ -21,6 +21,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/cfg/env.h>
 
+#include <thread>
+
 #include "proxy.h"
 
 using asio::awaitable;
@@ -53,13 +55,29 @@ int main()
     {
         spdlog::set_level(spdlog::level::debug);
         spdlog::cfg::load_env_levels();
+        spdlog::set_pattern("*** [%H:%M:%S %z] [thread %t] %v ***");
         spdlog::debug("hello spdlog");
+
         asio::io_context io_context;
         // asio::io_context io_context(ASIO_CONCURRENCY_HINT_UNSAFE_IO);
 
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto)
                            { io_context.stop(); });
+
+        auto create_thread = [&io_context](auto self, int i) -> void
+        {
+            if (i > 0)
+            {
+                std::thread t([&io_context](){
+                    io_context.run();
+                });
+                t.detach();
+                i--;
+                self(self, i);
+            }
+        };
+        // create_thread(create_thread, 3);
 
         // std::cout << std::this_thread::get_id() << std::endl;
         co_spawn(io_context, listener(), [&io_context](std::exception_ptr eptr)

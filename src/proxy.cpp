@@ -1,6 +1,7 @@
 #include "proxy.h"
 #include "parser.h"
 #include "http_tunnel.h"
+#include "dns.h"
 
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
@@ -39,8 +40,6 @@ awaitable<std::size_t> transfer_message(tcp_socket &input, tcp_socket &output, s
     }
     co_return nx;
 }
-
-static thread_local std::unordered_map<string, asio::ip::basic_resolver_results<asio::ip::tcp>> local_dns;
 
 awaitable<void> read_http_input(tcp_socket socket)
 {
@@ -111,27 +110,16 @@ awaitable<void> read_http_input(tcp_socket socket)
                 // debug("开始与远程端点建立连接:{}",target_endpoint.host_);
                 auto executor = socket.get_executor();
 
-                auto rip = local_dns.find(remote_service);
-                if (rip == local_dns.end())
-                {
-                    tcp_resolver re{executor};
-
-                    auto el = co_await re.async_resolve(host, service);
-                    debug("解析远程端点:{}", host);
-
-                    if (spdlog::get_level() == spdlog::level::debug)
-                    {
-                        for (auto &&ed : el)
-                        {
-                            spdlog::debug("{}:{}", ed.endpoint().address().to_string(), ed.endpoint().port());
-                        }
-                    }
-                    rip=local_dns.insert({remote_service, el}).first;
+                auto rrs=hcpp::slow_dns::get_slow_dns()->resolve(host, service);
+                if(!rrs){
+                    spdlog::info("解析服务 {} 失败",host);
+                    co_return;
                 }
-                debug("当前缓存dns查询 {}",local_dns.size());
+
+                auto rip = rrs.value();
 
                 auto respond_sock = std::make_shared<tcp_socket>(executor);
-                auto conn_name = co_await asio::async_connect(*respond_sock, rip->second);
+                auto conn_name = co_await asio::async_connect(*respond_sock, rip);
 
                 auto led = respond_sock->local_endpoint();
                 auto redp = respond_sock->remote_endpoint();
