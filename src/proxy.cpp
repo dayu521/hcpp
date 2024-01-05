@@ -110,14 +110,13 @@ awaitable<void> read_http_input(tcp_socket socket)
                 // debug("开始与远程端点建立连接:{}",target_endpoint.host_);
                 auto executor = socket.get_executor();
 
-                auto rrs=hcpp::slow_dns::get_slow_dns()->resolve(host, service);
-                if(!rrs){
-                    spdlog::info("解析服务 {} 失败",host);
-                    co_return;
+                auto rrs = hcpp::slow_dns::get_slow_dns()->resolve_cache(host);
+                if (!rrs)
+                {
+                    rrs.emplace(co_await hcpp::slow_dns::get_slow_dns()->resolve(host, service));
                 }
 
                 auto rip = rrs.value();
-
                 auto respond_sock = std::make_shared<tcp_socket>(executor);
                 auto conn_name = co_await asio::async_connect(*respond_sock, rip);
 

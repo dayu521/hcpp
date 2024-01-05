@@ -5,14 +5,12 @@
 #include <unordered_map>
 #include <optional>
 
-#include <asio/use_awaitable.hpp>
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
 
 #include <spdlog/spdlog.h>
 
 using tcp_resolver = asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::resolver>;
-using asio::awaitable;
 using asio::detached;
 
 namespace hcpp
@@ -22,9 +20,9 @@ namespace hcpp
         std::shared_mutex smutex_;
         std::unordered_map<std::string, resolver_results> dns_cache_;
 
-        std::optional<resolver_results> resolve(std::string host, std::string service);
+        awaitable<resolver_results> resolve(std::string host, std::string service);
 
-        awaitable<void> async_resolve(std::string_view host, std::string_view service);
+        awaitable<resolver_results> async_resolve(std::string_view host, std::string_view service);
     };
 
     std::shared_ptr<slow_dns> slow_dns::get_slow_dns()
@@ -33,23 +31,36 @@ namespace hcpp
         return p;
     }
 
-    std::optional<resolver_results> slow_dns::resolve(std::string host, std::string service)
-    {
-        static thread_local std::unordered_map<std::string, asio::ip::basic_resolver_results<asio::ip::tcp>> local_dns;
+    // awaitable<std::optional<resolver_results>>
 
-        if (auto ip_cache = local_dns.find(host); ip_cache == local_dns.end())
+    // thread_local std::unordered_map<std::string, asio::ip::basic_resolver_results<asio::ip::tcp>> slow_dns::local_dns;
+
+    awaitable<resolver_results> slow_dns::resolve(std::string host, std::string service)
+    {
+        if (auto r = resolve_cache(host); !r)
         {
-            auto r = imp_->resolve(host, service);
-            if (r)
-            {
-                local_dns.insert({host, r.value()});
-                spdlog::debug("当前缓存dns查询 {}", local_dns.size());
-            }
-            return r;
+            auto ip = co_await imp_->resolve(host, service);
+            local_dns.insert({host, ip});
+            spdlog::debug("当前缓存dns查询 {}", local_dns.size());
+
+            co_return ip;
         }
         else
         {
+            co_return r.value();
+        }
+    }
+
+    std::optional<resolver_results> slow_dns::resolve_cache(const std::string &host)
+    {
+
+        if (auto ip_cache = local_dns.find(host); ip_cache != local_dns.end())
+        {
             return {ip_cache->second};
+        }
+        else
+        {
+            return std::nullopt;
         }
     }
 
@@ -57,42 +68,46 @@ namespace hcpp
     {
     }
 
-    std::optional<resolver_results> slow_dns::slow_dns_imp::resolve(std::string host, std::string service)
+    awaitable<resolver_results> slow_dns::slow_dns_imp::resolve(std::string host, std::string service)
     {
-        {
-            {
-                std::shared_lock<std::shared_mutex> m(smutex_);
-                if (auto hm = dns_cache_.find(host); hm != dns_cache_.end())
-                {
-                    return hm->second;
-                }
-            }
-            {
 
-                co_spawn(executor, async_resolve(host, service), detached);
-                std::shared_lock<std::shared_mutex> m(smutex_);
-                if (auto hm = dns_cache_.find(host); hm != dns_cache_.end())
-                {
-                    return hm->second;
-                }
+        {
+            std::shared_lock<std::shared_mutex> m(smutex_);
+            if (auto hm = dns_cache_.find(host); hm != dns_cache_.end())
+            {
+                co_return hm->second;
             }
-            return std::nullopt;
         }
+
+        co_return co_await async_resolve(host, service);
     }
 
-    awaitable<void> slow_dns::slow_dns_imp::async_resolve(std::string_view host, std::string_view service)
+    awaitable<resolver_results> slow_dns::slow_dns_imp::async_resolve(std::string_view host, std::string_view service)
     {
-        std::unique_lock<std::shared_mutex> m(smutex_);
+        /// 协程内,协程切换时,一定不能持有锁,它都可能会和其他协程持有的锁互斥,除非所有都是共享锁
+        //  这里不能加锁
         auto executor = co_await asio::this_coro::executor;
         static tcp_resolver r(executor);
-        auto el = co_await r.async_resolve(host, service);
-        spdlog::debug("解析远程端点:{}", host);
 
+        std::unique_lock<std::shared_mutex> m(smutex_);
+
+        if (auto hm = dns_cache_.find(std::string(host)); hm != dns_cache_.end())
+        {
+            co_return hm->second;
+        }
+
+        auto el = r.resolve(host, service);
+
+        spdlog::info("解析远程端点:{}", host);
         for (auto &&ed : el)
         {
-            spdlog::debug("{}:{}", ed.endpoint().address().to_string(), ed.endpoint().port());
+            spdlog::info("{}:{}", ed.endpoint().address().to_string(), ed.endpoint().port());
         }
+        spdlog::info("已解析:{}个", dns_cache_.size());
+
         dns_cache_.insert({std::string(host), el});
+        //这里按照协程要求,可能切换协程.asio的协程调度实现是怎样的?
+        co_return el;
     }
 
 } // namespace hcpp

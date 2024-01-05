@@ -77,7 +77,7 @@ int main()
                 self(self, i);
             }
         };
-        // create_thread(create_thread, 3);
+        create_thread(create_thread, 3);
 
         // std::cout << std::this_thread::get_id() << std::endl;
         co_spawn(io_context, listener(), [&io_context](std::exception_ptr eptr)
