@@ -12,6 +12,7 @@
 #include <asio/connect.hpp>
 #include <asio/steady_timer.hpp>
 #include <asio/experimental/awaitable_operators.hpp>
+#include <asio/as_tuple.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -118,7 +119,14 @@ awaitable<void> read_http_input(tcp_socket socket)
 
                 auto rip = rrs.value();
                 auto respond_sock = std::make_shared<tcp_socket>(executor);
-                auto conn_name = co_await asio::async_connect(*respond_sock, rip);
+                // 默认完成处理器包装成协程后,传递参数反而有重载歧义,不得不写个0解决,这里在asio库不同的版本,编译可能出错
+                if (auto [error, remote_endpoint] = co_await asio::async_connect(*respond_sock, rip, asio::as_tuple(asio::use_awaitable), 0); error)
+                {
+                    // 如果重试,则客户端可能超时,即使解析成功,socket已经被关闭了
+                    spdlog::info("连接远程出错 -> {} {}", host, remote_endpoint.address().to_string());
+                    hcpp::slow_dns::get_slow_dns()->remove_ip(host,remote_endpoint.address().to_string());
+                    co_return;
+                }
 
                 auto led = respond_sock->local_endpoint();
                 auto redp = respond_sock->remote_endpoint();

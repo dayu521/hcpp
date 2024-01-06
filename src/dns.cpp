@@ -64,6 +64,12 @@ namespace hcpp
         }
     }
 
+    void slow_dns::remove_ip(const std::string & host, std::string_view ip)
+    {
+        local_dns.erase(host);
+        //TODO 全局缓存中对应条目,降低优先级或者直接取消这个ip
+    }
+
     slow_dns::slow_dns() : imp_(std::make_shared<slow_dns_imp>())
     {
     }
@@ -86,17 +92,20 @@ namespace hcpp
     {
         /// 协程内,协程切换时,一定不能持有锁,它都可能会和其他协程持有的锁互斥,除非所有都是共享锁
         //  这里不能加锁
-        auto executor = co_await asio::this_coro::executor;
-        static tcp_resolver r(executor);
-
-        std::unique_lock<std::shared_mutex> m(smutex_);
-
-        if (auto hm = dns_cache_.find(std::string(host)); hm != dns_cache_.end())
+        tcp_resolver r(co_await asio::this_coro::executor);
+        resolver_results el;
         {
-            co_return hm->second;
-        }
+            std::unique_lock<std::shared_mutex> m(smutex_);
 
-        auto el = r.resolve(host, service);
+            if (auto hm = dns_cache_.find(std::string(host)); hm != dns_cache_.end())
+            {
+                co_return hm->second;
+            }
+
+            el = r.resolve(host, service);
+
+            dns_cache_.insert({std::string(host), el});
+        }
 
         spdlog::info("解析远程端点:{}", host);
         for (auto &&ed : el)
@@ -105,8 +114,6 @@ namespace hcpp
         }
         spdlog::info("已解析:{}个", dns_cache_.size());
 
-        dns_cache_.insert({std::string(host), el});
-        //这里按照协程要求,可能切换协程.asio的协程调度实现是怎样的?
         co_return el;
     }
 

@@ -33,6 +33,7 @@ namespace hcpp
     public:
         awaitable<resolver_results> resolve(std::string host, std::string service);
         std::optional<resolver_results> resolve_cache(const std::string &host);
+        void remove_ip(const std::string & host,std::string_view ip);
 
     private:
         slow_dns();
