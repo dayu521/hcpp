@@ -2,6 +2,7 @@
 #define TUNNEL_H
 #include <asio/ip/tcp.hpp>
 #include <asio/use_awaitable.hpp>
+#include <asio/experimental/as_single.hpp>
 
 #include <memory>
 
@@ -10,8 +11,15 @@ using asio::awaitable;
 
 using asio::ip::tcp;
 
-using tcp_acceptor = use_awaitable_t<>::as_default_on_t<tcp::acceptor>;
-using tcp_socket = use_awaitable_t<>::as_default_on_t<tcp::socket>;
+// using default_token = asio::experimental::as_single_t<use_awaitable_t<>>;
+using default_token = use_awaitable_t<>;
+
+using tcp_acceptor = default_token::as_default_on_t<tcp::acceptor>;
+using tcp_socket = default_token::as_default_on_t<tcp::socket>;
+
+
+// using tcp_acceptor = default_token::as_default_on_t<tcp::acceptor>;
+// using tcp_socket_single = asio::experimental::as_single_t<use_awaitable_t<>>::as_default_on_t<tcp::socket>;
 
 
 

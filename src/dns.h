@@ -8,11 +8,13 @@
 
 #include <asio/ip/tcp.hpp>
 #include <asio/use_awaitable.hpp>
+#include <asio/any_io_executor.hpp>
 
 namespace hcpp
 {
     using resolver_results = asio::ip::basic_resolver_results<asio::ip::tcp>;
     using asio::awaitable;
+    using asio::any_io_executor;
 
     struct host_mapping
     {
@@ -33,7 +35,9 @@ namespace hcpp
     public:
         awaitable<resolver_results> resolve(std::string host, std::string service);
         std::optional<resolver_results> resolve_cache(const std::string &host);
-        void remove_ip(const std::string & host,std::string_view ip);
+        void remove_ip(const std::string &host, std::string_view ip);
+
+        void init_resolver(any_io_executor executor);
 
     private:
         slow_dns();

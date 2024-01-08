@@ -23,6 +23,7 @@ target_link_libraries(${appname} PRIVATE spdlog::spdlog)
 # FILES  ${module_src})
 
 add_executable(a2 a.cpp)
+add_executable(b b.cpp)
 
 add_subdirectory(test)
 

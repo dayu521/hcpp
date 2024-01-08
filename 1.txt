@@ -50,3 +50,19 @@ https://www.rfc-editor.org/rfc/rfc2616#section-4.2
 协程内,协程切换时,一定不能持有锁!!
     如何解决? 获取锁的协程,在暂停执行时,它所在的线程不允许再执行其他的协程.
         协程执行器一定得知道协程持有哪些锁,这要求应用程序需要告诉执行器它获得的锁
+
+复杂声明
+
+template <typename>
+char (&async_result_initiate_memfn_helper(...))[2];
+
+template <typename T>
+char async_result_initiate_memfn_helper(
+    async_result_memfns_check<
+      void (async_result_memfns_base::*)(),
+      &async_result_memfns_derived<T>::initiate>*);
+
+第一个声明的是一个函数模板,它生成的函数是:接受不定参数,且返回数组引用,其中数组是char [2]类型
+主要问题是引用是修饰的是数组,而非括号内的async_result_initiate_memfn_helper名字
+
+    感谢 文心一言 https://zh.cppreference.com/w/cpp/language/declarations

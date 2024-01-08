@@ -10,12 +10,15 @@ using namespace std;
 void lock_test()
 {
     static std::shared_mutex smutex_;
-    std::shared_lock<std::shared_mutex> m(smutex_);
+    // std::shared_lock<std::shared_mutex> m(smutex_);
     {
         std::shared_lock<std::shared_mutex> m2(smutex_);
+        std::shared_lock<std::shared_mutex> m3(smutex_);
+        std::shared_lock<std::shared_mutex> m4(smutex_);
     } //ok
 
     {
+        std::shared_lock<std::shared_mutex> m3(smutex_);
         std::unique_lock<std::shared_mutex> m2(smutex_);
     }//一直等待共享锁释放
 }

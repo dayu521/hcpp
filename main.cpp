@@ -24,6 +24,7 @@
 #include <thread>
 
 #include "proxy.h"
+#include "dns.h"
 
 using asio::awaitable;
 using asio::co_spawn;
@@ -42,10 +43,11 @@ awaitable<void> listener()
     tcp_acceptor acceptor(executor, {tcp::v4(), 55555});
     auto d = acceptor.local_endpoint();
     spdlog::debug("服务器监听端口:{}", d.port());
+    hcpp::slow_dns::get_slow_dns()->init_resolver(executor);
     for (;;)
     {
         auto socket = co_await acceptor.async_accept();
-        co_spawn(executor, read_http_input(std::move(socket)), detached);
+        co_spawn(executor, read_http_input(std::move(socket),hcpp::slow_dns::get_slow_dns()), detached);
     }
 }
 
