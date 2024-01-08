@@ -3,7 +3,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <unordered_map>
-#include <unordered_set>
+// #include <unordered_set>
 #include <optional>
 #include <iostream>
 
@@ -38,7 +38,7 @@ namespace hcpp
         std::unique_ptr<tcp_resolver> resolver_;
 
         std::mutex rmutex_;
-        std::unordered_set<std::string> resolve_running_;
+        std::unordered_multimap<std::string, std::shared_ptr<channel>> resolve_running_;
 
         awaitable<resolver_results> resolve(std::string host, std::string service = "");
 
@@ -141,41 +141,39 @@ namespace hcpp
         std::string h(host);
         {
             std::unique_lock<std::mutex> m(rmutex_);
-            need_resolve = resolve_running_.insert(h).second;
+            if (!resolve_running_.contains(h))
+            {
+                need_resolve = true;
+            }
+            resolve_running_.insert({h, cc});
+        }
+        if (!need_resolve)
+        {
+            co_return;
         }
 
         resolver_results el;
+        tcp_resolver t(cc->get_executor());
+        el = t.resolve(host, service);
 
-        if (!need_resolve)
         {
-            std::shared_lock<std::shared_mutex> m(smutex_);
-            auto ee = dns_cache_.find(std::string(host));
-            el = ee->second;
-            assert(ee != dns_cache_.end());
-        }
-        else
-        {
+            std::unique_lock<std::shared_mutex> m(smutex_);
+
+            if (!dns_cache_.contains(h))
             {
-                std::unique_lock<std::shared_mutex> m(smutex_);
-
-                if (auto hm = dns_cache_.find(std::string(host)); hm != dns_cache_.end())
-                {
-                    el = hm->second;
-                }
-                else
-                {
-                    // el = resolver_->resolve(host, service);
-
-                    tcp_resolver t(cc->get_executor());
-                    el = t.resolve(host, service);
-                    std::unique_lock<std::mutex> m(rmutex_);
-                    // FIXME 是的 解析失败了这块就不会被执行
-                    resolve_running_.erase(h);
-                    dns_cache_.insert({h, el});
-                }
+                dns_cache_.insert({h, el});
             }
         }
 
+        {
+            std::unique_lock<std::mutex> m(rmutex_);
+            if(resolve_running_.contains(h)){
+                for(auto && it =resolve_running_.find(h);it!=resolve_running_.end();it++){
+                    //失败的不管它
+                    it->second->try_send(asio::error_code{}, el);
+                }
+            }
+        }
         spdlog::info("解析远程端点:{}", host);
         for (auto &&ed : el)
         {
@@ -183,7 +181,6 @@ namespace hcpp
         }
         spdlog::info("已解析:{}个,返回当前解析", dns_cache_.size());
 
-        co_return co_await cc->async_send(asio::error_code{}, el);
     }
 
 } // namespace hcpp

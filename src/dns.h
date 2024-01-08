@@ -39,6 +39,8 @@ namespace hcpp
 
         void init_resolver(any_io_executor executor);
 
+        //TODO 清理缓存.那些无法连接上的也需要清理
+
     private:
         slow_dns();
 
