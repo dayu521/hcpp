@@ -18,8 +18,6 @@ target("hcpp")
     if is_os("windows") then
         add_defines("MSVC_SPECIAL")
         add_cxxflags("/source-charset:utf-8")
-        -- add_cxxflags("/experimental:module",{force = true})
-        -- add_cxxflags("/std:c++latest",{force = true})
     end
 
 -- https://zhuanlan.zhihu.com/p/640701847

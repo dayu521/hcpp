@@ -12,20 +12,10 @@
 
 namespace hcpp
 {
-    using resolver_results = asio::ip::basic_resolver_results<asio::ip::tcp>;
+    using resolver_results =std::vector<asio::ip::tcp::endpoint>;
+    // using resolver_results = asio::ip::basic_resolver_results<asio::ip::tcp>;
     using asio::awaitable;
     using asio::any_io_executor;
-
-    struct host_mapping
-    {
-        std::string host_;
-        std::vector<std::string> ips_;
-    };
-
-    struct dns_cfg
-    {
-        std::vector<host_mapping> mappings_;
-    };
 
     class slow_dns
     {
@@ -45,7 +35,7 @@ namespace hcpp
     private:
         slow_dns();
 
-        inline static thread_local std::unordered_map<std::string, asio::ip::basic_resolver_results<asio::ip::tcp>> local_dns;
+        inline static thread_local std::unordered_map<std::string, resolver_results> local_dns;
 
         struct slow_dns_imp;
         std::shared_ptr<slow_dns_imp> imp_;

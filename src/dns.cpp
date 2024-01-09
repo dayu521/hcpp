@@ -8,6 +8,8 @@
 // #include <unordered_set>
 #include <optional>
 #include <iostream>
+#include <algorithm>
+#include <fstream>
 
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
@@ -33,11 +35,25 @@ using channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void
 
 namespace hcpp
 {
+    struct host_mapping
+    {
+        std::string host_;
+        int port_;
+        std::vector<std::string> ips_;
+        JS_OBJECT(JS_MEMBER(host_), JS_MEMBER(port_),JS_MEMBER(ips_));
+    };
+
+    struct dns_cfg
+    {
+        std::vector<host_mapping> mappings_;
+    };
     struct slow_dns::slow_dns_imp
     {
         std::shared_mutex smutex_;
         std::unordered_map<std::string, resolver_results> dns_cache_;
         std::unique_ptr<tcp_resolver> resolver_;
+        bool has_init_;
+        bool has_save_;
 
         std::mutex rmutex_;
         std::unordered_multimap<std::string, std::shared_ptr<channel>> resolve_running_;
@@ -94,8 +110,6 @@ namespace hcpp
 
     void slow_dns::init_resolver(any_io_executor executor)
     {
-        // 初始化生成器
-        imp_->resolver_ = std::make_unique<tcp_resolver>(executor);
 
         lsf::Json j;
         lsf::SerializeBuilder bu;
@@ -106,18 +120,67 @@ namespace hcpp
             std::cout << j.get_errors() << std::endl;
             throw std::runtime_error("解析出错");
         }
-        lsf::json_to_string(*res, bu);
-        
-        spdlog::debug(bu.get_jsonstring());
+        std::vector<host_mapping> vv;
+        lsf::json_to_struct(*res, vv);
+
+        // spdlog::debug(bu.get_jsonstring());
         // std::cout << bu.get_jsonstring() << std::endl;
 
         // 解析
         std::unique_lock<std::shared_mutex> m(imp_->smutex_);
+        if (imp_->has_init_)
+        {
+            spdlog::error("slow_dns 检测到重复初始化");
+            return;
+        }
+        // 初始化生成器
+        imp_->resolver_ = std::make_unique<tcp_resolver>(executor);
+        std::ranges::transform(vv, std::inserter(imp_->dns_cache_,imp_->dns_cache_.begin()), [](auto &&i)
+        {
+            resolver_results v;
+            v.reserve(i.ips_.size());
+            std::ranges::transform(i.ips_,std::back_inserter(v),[port=i.port_](auto && host){
+                return asio::ip::tcp::endpoint(asio::ip::make_address(host),port);
+            });
+            return std::make_pair(i.host_,v); });
+        imp_->has_init_ = true;
         // TODO 从配置文件中获取一些ip
     }
 
     void slow_dns::save_mapping()
     {
+        //TODO 可以直接复制一个容器再进行保存,减小加锁粒度
+        std::unique_lock<std::shared_mutex> m(imp_->smutex_);
+        if (imp_->has_save_)
+        {
+            spdlog::error("slow_dns 检测到重复保存");
+            return;
+        }
+        std::vector<host_mapping> vv;
+        vv.reserve(imp_->dns_cache_.size());
+
+        std::ranges::transform(imp_->dns_cache_, std::back_inserter(vv), [](auto &&i)
+        {
+            host_mapping hm;
+            hm.host_=i.first;
+            std::ranges::transform(i.second,std::back_inserter(hm.ips_),[](auto && i2){
+                return i2.address().to_string();
+            });
+            if(hm.ips_.size()>0){
+                hm.port_=i.second.begin()->port();
+            }
+            return hm; });
+
+        lsf::SerializeBuilder bu;
+        lsf::struct_to_jsonstr(vv, bu);
+        std::ofstream f("1.json");
+        if (!f.is_open())
+        {
+            throw std::runtime_error("打开1.json文件失败");
+        }
+        f << bu.get_jsonstring();
+        // std::cout << bu.get_jsonstring() << std::endl;
+        imp_->has_save_ = true;
     }
 
     slow_dns::slow_dns() : imp_(std::make_shared<slow_dns_imp>())
@@ -178,7 +241,14 @@ namespace hcpp
 
         resolver_results el;
         tcp_resolver t(cc->get_executor());
-        el = t.resolve(host, service);
+        // el=t.resolve(host, service);
+        auto src = t.resolve(host, service);
+        // std::ranges::transform(src,el,[](auto && i){return i.endpoint();});
+        // if(src.size())
+        for (auto &&i : src)
+        {
+            el.push_back(std::move(i.endpoint()));
+        }
 
         {
             std::unique_lock<std::shared_mutex> m(smutex_);
@@ -203,7 +273,8 @@ namespace hcpp
         spdlog::info("解析远程端点:{}", host);
         for (auto &&ed : el)
         {
-            spdlog::info("{}:{}", ed.endpoint().address().to_string(), ed.endpoint().port());
+            spdlog::info("{}:{}", ed.address().to_string(), ed.port());
+            // spdlog::info("{}:{}", ed.endpoint().address().to_string(), ed.endpoint().port());
         }
         spdlog::info("已解析:{}个,返回当前解析", dns_cache_.size());
     }

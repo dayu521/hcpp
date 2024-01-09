@@ -76,6 +76,7 @@ int main()
             {
                 std::thread t([&io_context]()
                               {
+                                while(!io_context.stopped()){
                                   try
                                   {
                                       io_context.run();
@@ -83,7 +84,8 @@ int main()
                                   catch (const std::exception &e)
                                   {
                                       spdlog::error(e.what());
-                                  } });
+                                  } 
+                                } });
                 t.detach();
                 i--;
                 self(self, i);
