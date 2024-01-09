@@ -1,3 +1,7 @@
+xmake 
+    xmake c -va
+    xmake f -m debug --toolchain=clang -c
+    xmake -vDwr 
 rsa 密钥
     它的持有者可以使用它创建认证签名请求,然后向ca中心进行认证
 

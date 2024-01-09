@@ -38,6 +38,7 @@ namespace hcpp
         void remove_ip(const std::string &host, std::string_view ip);
 
         void init_resolver(any_io_executor executor);
+        void save_mapping();
 
         //TODO 清理缓存.那些无法连接上的也需要清理
 

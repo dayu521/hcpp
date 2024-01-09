@@ -43,11 +43,10 @@ awaitable<void> listener()
     tcp_acceptor acceptor(executor, {tcp::v4(), 55555});
     auto d = acceptor.local_endpoint();
     spdlog::debug("服务器监听端口:{}", d.port());
-    hcpp::slow_dns::get_slow_dns()->init_resolver(executor);
     for (;;)
     {
         auto socket = co_await acceptor.async_accept();
-        co_spawn(executor, read_http_input(std::move(socket),hcpp::slow_dns::get_slow_dns()), detached);
+        co_spawn(executor, read_http_input(std::move(socket), hcpp::slow_dns::get_slow_dns()), detached);
     }
 }
 
@@ -58,22 +57,33 @@ int main()
         spdlog::set_level(spdlog::level::debug);
         spdlog::cfg::load_env_levels();
         spdlog::set_pattern("*** [%H:%M:%S %z] [thread %t] %v ***");
-        spdlog::debug("hello spdlog");
+        spdlog::debug("hcpp launch");
 
         asio::io_context io_context;
         // asio::io_context io_context(ASIO_CONCURRENCY_HINT_UNSAFE_IO);
 
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto)
-                           { io_context.stop(); });
+                           {
+                            hcpp::slow_dns::get_slow_dns()->save_mapping(); 
+                            io_context.stop(); });
+
+        hcpp::slow_dns::get_slow_dns()->init_resolver(io_context.get_executor());
 
         auto create_thread = [&io_context](auto self, int i) -> void
         {
             if (i > 0)
             {
-                std::thread t([&io_context](){
-                    io_context.run();
-                });
+                std::thread t([&io_context]()
+                              {
+                                  try
+                                  {
+                                      io_context.run();
+                                  }
+                                  catch (const std::exception &e)
+                                  {
+                                      spdlog::error(e.what());
+                                  } });
                 t.detach();
                 i--;
                 self(self, i);
@@ -81,7 +91,6 @@ int main()
         };
         create_thread(create_thread, 3);
 
-        // std::cout << std::this_thread::get_id() << std::endl;
         co_spawn(io_context, listener(), [&io_context](std::exception_ptr eptr)
                  {
                      // try

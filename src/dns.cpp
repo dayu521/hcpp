@@ -1,5 +1,7 @@
 #include "dns.h"
 
+#include "json.h"
+
 #include <mutex>
 #include <shared_mutex>
 #include <unordered_map>
@@ -94,6 +96,28 @@ namespace hcpp
     {
         // 初始化生成器
         imp_->resolver_ = std::make_unique<tcp_resolver>(executor);
+
+        lsf::Json j;
+        lsf::SerializeBuilder bu;
+
+        auto res = j.run(std::make_unique<lsf::FileSource>("1.json"));
+        if (!res)
+        {
+            std::cout << j.get_errors() << std::endl;
+            throw std::runtime_error("解析出错");
+        }
+        lsf::json_to_string(*res, bu);
+        
+        spdlog::debug(bu.get_jsonstring());
+        // std::cout << bu.get_jsonstring() << std::endl;
+
+        // 解析
+        std::unique_lock<std::shared_mutex> m(imp_->smutex_);
+        // TODO 从配置文件中获取一些ip
+    }
+
+    void slow_dns::save_mapping()
+    {
     }
 
     slow_dns::slow_dns() : imp_(std::make_shared<slow_dns_imp>())
@@ -167,9 +191,11 @@ namespace hcpp
 
         {
             std::unique_lock<std::mutex> m(rmutex_);
-            if(resolve_running_.contains(h)){
-                for(auto && it =resolve_running_.find(h);it!=resolve_running_.end();it++){
-                    //失败的不管它
+            if (resolve_running_.contains(h))
+            {
+                for (auto &&it = resolve_running_.find(h); it != resolve_running_.end(); it++)
+                {
+                    // 失败的不管它
                     it->second->try_send(asio::error_code{}, el);
                 }
             }
@@ -180,7 +206,6 @@ namespace hcpp
             spdlog::info("{}:{}", ed.endpoint().address().to_string(), ed.endpoint().port());
         }
         spdlog::info("已解析:{}个,返回当前解析", dns_cache_.size());
-
     }
 
 } // namespace hcpp
