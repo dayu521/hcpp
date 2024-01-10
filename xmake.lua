@@ -2,6 +2,7 @@ add_rules("mode.debug", "mode.release")
 
 set_languages("c++20")
 
+-- https://gitee.com/californiacat/lsf.git
 includes("lib/lsf")
 add_requires("spdlog")
 add_requires("asio")

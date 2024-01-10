@@ -24,6 +24,7 @@
 
 using tcp_resolver = asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::resolver>;
 using asio::detached;
+using asio::use_awaitable;
 
 using namespace asio::experimental::awaitable_operators;
 using steady_timer = asio::use_awaitable_t<>::as_default_on_t<asio::steady_timer>;
@@ -40,7 +41,7 @@ namespace hcpp
         std::string host_;
         int port_;
         std::vector<std::string> ips_;
-        JS_OBJECT(JS_MEMBER(host_), JS_MEMBER(port_),JS_MEMBER(ips_));
+        JS_OBJECT(JS_MEMBER(host_), JS_MEMBER(port_), JS_MEMBER(ips_));
     };
 
     struct dns_cfg
@@ -135,8 +136,8 @@ namespace hcpp
         }
         // 初始化生成器
         imp_->resolver_ = std::make_unique<tcp_resolver>(executor);
-        std::ranges::transform(vv, std::inserter(imp_->dns_cache_,imp_->dns_cache_.begin()), [](auto &&i)
-        {
+        std::ranges::transform(vv, std::inserter(imp_->dns_cache_, imp_->dns_cache_.begin()), [](auto &&i)
+                               {
             resolver_results v;
             v.reserve(i.ips_.size());
             std::ranges::transform(i.ips_,std::back_inserter(v),[port=i.port_](auto && host){
@@ -144,12 +145,12 @@ namespace hcpp
             });
             return std::make_pair(i.host_,v); });
         imp_->has_init_ = true;
-        // TODO 从配置文件中获取一些ip
+        spdlog::info("从文件读取host mapping {} 个", vv.size());
     }
 
     void slow_dns::save_mapping()
     {
-        //TODO 可以直接复制一个容器再进行保存,减小加锁粒度
+        // TODO 可以直接复制一个容器再进行保存,减小加锁粒度
         std::unique_lock<std::shared_mutex> m(imp_->smutex_);
         if (imp_->has_save_)
         {
@@ -160,7 +161,7 @@ namespace hcpp
         vv.reserve(imp_->dns_cache_.size());
 
         std::ranges::transform(imp_->dns_cache_, std::back_inserter(vv), [](auto &&i)
-        {
+                               {
             host_mapping hm;
             hm.host_=i.first;
             std::ranges::transform(i.second,std::back_inserter(hm.ips_),[](auto && i2){
@@ -181,6 +182,7 @@ namespace hcpp
         f << bu.get_jsonstring();
         // std::cout << bu.get_jsonstring() << std::endl;
         imp_->has_save_ = true;
+        spdlog::info("保存解析的host mapping {} 个", vv.size());
     }
 
     slow_dns::slow_dns() : imp_(std::make_shared<slow_dns_imp>())
@@ -200,9 +202,10 @@ namespace hcpp
         auto ex = co_await asio::this_coro::executor;
 
         steady_timer t(ex);
-        t.expires_after(std::chrono::seconds(3));
+        t.expires_after(std::chrono::seconds(8));
 
-        auto cc = std::make_shared<channel>(ex, 0);
+        //注意,异步发送,一定要指定可发送的消息大小.
+        auto cc = std::make_shared<channel>(ex, 1);
 
         // 有多个解析的主机名是不同的,他们应该不需要等待,直接解析
         // 单纯的使用基本的加锁只是解决线程的并发问题.需要采用高级协议,例如,消息队列模型
@@ -223,7 +226,7 @@ namespace hcpp
     {
         /// 协程内,协程切换时,一定不能持有锁,它都可能会和其他协程持有的锁互斥,除非所有都是共享锁
 
-        // 1. 查看是否有其他人正在解析当前host
+        // 查看是否有其他人正在解析当前host
         bool need_resolve = false;
         std::string h(host);
         {
@@ -239,44 +242,39 @@ namespace hcpp
             co_return;
         }
 
-        resolver_results el;
         tcp_resolver t(cc->get_executor());
-        // el=t.resolve(host, service);
         auto src = t.resolve(host, service);
-        // std::ranges::transform(src,el,[](auto && i){return i.endpoint();});
-        // if(src.size())
-        for (auto &&i : src)
-        {
-            el.push_back(std::move(i.endpoint()));
-        }
+        resolver_results el;
+        el.reserve(src.size());
+        std::ranges::transform(src, std::back_inserter(el), [](auto &&i)
+                               { return std::move(i.endpoint()); });
 
         {
             std::unique_lock<std::shared_mutex> m(smutex_);
-
-            if (!dns_cache_.contains(h))
+            if (auto res = dns_cache_.insert({h, el}); !res.second)
             {
-                dns_cache_.insert({h, el});
+                el = res.first->second;
             }
         }
 
         {
             std::unique_lock<std::mutex> m(rmutex_);
-            if (resolve_running_.contains(h))
-            {
-                for (auto &&it = resolve_running_.find(h); it != resolve_running_.end(); it++)
-                {
-                    // 失败的不管它
-                    it->second->try_send(asio::error_code{}, el);
-                }
-            }
+            auto [a, b] = resolve_running_.equal_range(h);
+
+            std::ranges::for_each(a, b, [&el](auto &&i) {
+                // 失败的不管它
+                i.second->try_send(asio::error_code{}, el); 
+            });
+            resolve_running_.erase(h);
         }
+ 
         spdlog::info("解析远程端点:{}", host);
         for (auto &&ed : el)
         {
             spdlog::info("{}:{}", ed.address().to_string(), ed.port());
             // spdlog::info("{}:{}", ed.endpoint().address().to_string(), ed.endpoint().port());
         }
-        spdlog::info("已解析:{}个,返回当前解析", dns_cache_.size());
+        spdlog::info("共解析:{}个", dns_cache_.size());
     }
 
 } // namespace hcpp

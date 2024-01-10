@@ -32,6 +32,8 @@ namespace hcpp
 
         //TODO 清理缓存.那些无法连接上的也需要清理
 
+        //TODO 保存配置时,全写文件无意义.需要解析配置时得到修改处的位置
+
     private:
         slow_dns();
 

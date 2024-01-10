@@ -115,7 +115,7 @@ namespace hcpp
                     // debug("开始与远程端点建立连接:{}",target_endpoint.host_);
                     auto executor = socket.get_executor();
 
-                    auto rrs = hcpp::slow_dns::get_slow_dns()->resolve_cache(host);
+                    auto rrs = sdns->resolve_cache(host);
                     if (!rrs)
                     {
                         //TODO 解析出错应该提示
