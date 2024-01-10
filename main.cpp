@@ -50,7 +50,7 @@ awaitable<void> listener()
     }
 }
 
-int main()
+int main(int argc, char ** argv)
 {
     try
     {
@@ -68,7 +68,13 @@ int main()
                             hcpp::slow_dns::get_slow_dns()->save_mapping(); 
                             io_context.stop(); });
 
-        hcpp::slow_dns::get_slow_dns()->init_resolver(io_context.get_executor());
+        std::string dns_path;
+        if (argc == 2)
+        {
+            dns_path=argv[1];
+        }
+        hcpp::slow_dns::get_slow_dns()->init_resolver(io_context.get_executor(),dns_path);
+
 
         auto create_thread = [&io_context](auto self, int i) -> void
         {

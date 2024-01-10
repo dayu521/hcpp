@@ -115,11 +115,11 @@ namespace hcpp
                     // debug("开始与远程端点建立连接:{}",target_endpoint.host_);
                     auto executor = socket.get_executor();
 
-                    auto rrs = sdns->resolve_cache(host);
+                    auto rrs = sdns->resolve_cache({host,service});
                     if (!rrs)
                     {
                         //TODO 解析出错应该提示
-                        rrs.emplace(co_await sdns->resolve(host, service));
+                        rrs.emplace(co_await sdns->resolve({host,service}));
                     }
 
                     auto rip = rrs.value();
@@ -129,7 +129,7 @@ namespace hcpp
                     {
                         // 如果重试,则客户端可能超时,即使解析成功,socket已经被关闭了
                         spdlog::info("连接远程出错 -> {} {}", host, remote_endpoint.address().to_string());
-                        hcpp::slow_dns::get_slow_dns()->remove_ip(host, remote_endpoint.address().to_string());
+                        hcpp::slow_dns::get_slow_dns()->remove_svc({host,service}, remote_endpoint.address().to_string());
                         co_return;
                     }
 
