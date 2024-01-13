@@ -257,11 +257,6 @@ namespace hcpp
                 resolve_running_.insert({hedp,{cc}});
                 need_resolve = true;
             }
-            // if (!resolve_running_.contains(hedp))
-            // {
-            //     need_resolve = true;
-            // }
-            // resolve_running_.insert({hedp, cc});
         }
         if (!need_resolve)
         {
@@ -269,6 +264,8 @@ namespace hcpp
         }
 
         tcp_resolver t(cc->get_executor());
+        // 反而更慢,因为可能接收大量对同一个名字的解析
+        // auto src = co_await t.async_resolve(hedp.first, hedp.second);
         auto src = t.resolve(hedp.first, hedp.second);
         edp_lists el;
         el.reserve(src.size());

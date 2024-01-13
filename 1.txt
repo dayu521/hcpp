@@ -2,6 +2,14 @@ xmake
     xmake c -va
     xmake f -m debug --toolchain=clang -c
     xmake -vDwr 
+
+证书生成
+    https://github.com/chronoxor/CppServer#openssl-certificates
+    https://learn.microsoft.com/en-us/azure/application-gateway/self-signed-certificates
+    https://www.baeldung.com/openssl-self-signed-cert
+certificate 
+    https://www.rfc-editor.org/rfc/rfc5246#appendix-B
+
 rsa 密钥
     它的持有者可以使用它创建认证签名请求,然后向ca中心进行认证
 
@@ -14,13 +22,26 @@ x509 签名
 crt
     获得的证书,当客户端发起tls通讯时,服务端把这个证书发送给他们
 
-root ca
-    证书认证中心的公钥,客户端保存了各个认证中心的公钥,用来确认收到的证书
+ca certificate
+    证书颁发机构(ca)的证书.一般浏览器内置很多信任的ca的证书.当服务器发送自己的证书时,浏览器会使用那些ca的证书来验证
+    服务器的证书.
+
+    创建完ca的证书后,通常有签名请求,就通过openssl req 命令中的 -CA 和 -CAkey参数指定这个CA的证书以及CA的证书对应私钥
+    来给证书请求进行签名
+
+    创建证书请求时,自己签名自己,就创建了自签名证书,也就可作为ca证书
 
 https://learn.microsoft.com/zh-cn/azure/iot-hub/reference-x509-certificates
 
+查看参数
+openssl req -h
+
 openssl genpkey -out pop.key -algorithm RSA -pkeyopt rsa_keygen_bits:2048
 openssl req -new -key pop.key -out pop.csr
+
+openssl req -x509 与 openssl x509 命令
+输出的x509默认证书格式都是pem
+    https://www.openssl.org/docs/manmaster/man1/openssl-x509.html
 
 
 快捷键
@@ -69,4 +90,7 @@ char async_result_initiate_memfn_helper(
 第一个声明的是一个函数模板,它生成的函数是:接受不定参数,且返回数组引用,其中数组是char [2]类型
 主要问题是引用是修饰的是数组,而非括号内的async_result_initiate_memfn_helper名字
 
-    感谢 文心一言 https://zh.cppreference.com/w/cpp/language/declarations
+    文心一言 https://zh.cppreference.com/w/cpp/language/declarations
+
+tls1.2 sni
+    https://www.rfc-editor.org/rfc/rfc6066#section-3

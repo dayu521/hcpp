@@ -25,6 +25,7 @@
 
 #include "proxy.h"
 #include "dns.h"
+#include "https/server.h"
 
 using asio::awaitable;
 using asio::co_spawn;
@@ -40,17 +41,21 @@ awaitable<void> listener()
     // std::cout << std::this_thread::get_id() << std::endl;
     auto executor = co_await this_coro::executor;
 
+    auto cc = std::make_shared<hcpp::socket_channel>(executor,10);
+
+    co_spawn(executor,hcpp::https_listen(cc),detached);
+
     tcp_acceptor acceptor(executor, {tcp::v4(), 55555});
     auto d = acceptor.local_endpoint();
     spdlog::debug("服务器监听端口:{}", d.port());
     for (;;)
     {
         auto socket = co_await acceptor.async_accept();
-        co_spawn(executor, read_http_input(std::move(socket), hcpp::slow_dns::get_slow_dns()), detached);
+        co_spawn(executor, read_http_input(std::move(socket), hcpp::slow_dns::get_slow_dns(),cc), detached);
     }
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
     try
     {
@@ -60,7 +65,6 @@ int main(int argc, char ** argv)
         spdlog::debug("hcpp launch");
 
         asio::io_context io_context;
-        // asio::io_context io_context(ASIO_CONCURRENCY_HINT_UNSAFE_IO);
 
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto)
@@ -68,30 +72,34 @@ int main(int argc, char ** argv)
                             hcpp::slow_dns::get_slow_dns()->save_mapping(); 
                             io_context.stop(); });
 
+        // dns缓存初始化
         std::string dns_path;
         if (argc == 2)
         {
-            dns_path=argv[1];
+            dns_path = argv[1];
         }
-        hcpp::slow_dns::get_slow_dns()->init_resolver(io_context.get_executor(),dns_path);
-
+        hcpp::slow_dns::get_slow_dns()->init_resolver(io_context.get_executor(), dns_path);
 
         auto create_thread = [&io_context](auto self, int i) -> void
         {
             if (i > 0)
             {
-                std::thread t([&io_context]()
-                              {
-                                while(!io_context.stopped()){
-                                  try
-                                  {
-                                      io_context.run();
-                                  }
-                                  catch (const std::exception &e)
-                                  {
-                                      spdlog::error(e.what());
-                                  } 
-                                } });
+                auto service = [&io_context]()
+                {
+                    while (!io_context.stopped())
+                    {
+                        try
+                        {
+                            io_context.run();
+                        }
+                        catch (const std::exception &e)
+                        {
+                            spdlog::error(e.what());
+                        }
+                    }
+                    spdlog::debug("线程退出成功");
+                };
+                std::thread t(service);
                 t.detach();
                 i--;
                 self(self, i);

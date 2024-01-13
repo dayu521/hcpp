@@ -1,6 +1,8 @@
 #ifndef PROXY_H
 #define PROXY_H
 
+#include "https/server.h"
+
 #include <asio/ip/tcp.hpp>
 #include <asio/use_awaitable.hpp>
 
@@ -15,7 +17,7 @@ namespace hcpp
     using tcp_socket = use_awaitable_t<>::as_default_on_t<tcp::socket>;
 
     class slow_dns;
-    awaitable<void> read_http_input(tcp_socket socket, std::shared_ptr<slow_dns> sdns);
+    awaitable<void> read_http_input(tcp_socket socket, std::shared_ptr<slow_dns> sdns,std::shared_ptr<socket_channel> https_channel);
 
 } // namespace hcpp
 

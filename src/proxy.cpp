@@ -46,7 +46,7 @@ namespace hcpp
         co_return nx;
     }
 
-    awaitable<void> read_http_input(tcp_socket socket,std::shared_ptr<slow_dns> sdns)
+    awaitable<void> read_http_input(tcp_socket socket,std::shared_ptr<slow_dns> sdns,std::shared_ptr<socket_channel> https_channel)
     {
         using std::string, std::string_view;
         spdlog::debug("新连接 {}:{}", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
@@ -109,6 +109,13 @@ namespace hcpp
                 const auto &[method, host, service] = target_endpoint;
 
                 auto remote_service = host + ":" + service;
+                if(host=="hello"){
+                   co_await async_write(socket, asio::buffer("HTTP/1.0 200 Connection established\r\n\r\n"_buf));
+                   auto native_handle=socket.native_handle();
+                   socket.release();
+                   co_await https_channel->async_send(asio::error_code{},{.native_handle_=native_handle});
+                   co_return ;
+                }
 
                 if (method == "CONNECT" || !keep_alive_sock.contains(remote_service)) // TODO 这里判断哪些连接被缓存,应该多个ip判断
                 {
