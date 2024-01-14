@@ -3,6 +3,9 @@ xmake
     xmake f -m debug --toolchain=clang -c
     xmake -vDwr 
 
+curl测试
+    curl -x http://localhost:55555 -vk 'https://www.baidu.com' 
+
 证书生成
     https://github.com/chronoxor/CppServer#openssl-certificates
     https://learn.microsoft.com/en-us/azure/application-gateway/self-signed-certificates
@@ -43,6 +46,14 @@ openssl req -x509 与 openssl x509 命令
 输出的x509默认证书格式都是pem
     https://www.openssl.org/docs/manmaster/man1/openssl-x509.html
 
+生成自签名的ca证书
+    openssl req -new -x509 -keyout ca-key.pem -out ca-cert.pem -days 365 -extensions v3_ca -subj "/C=US/ST=California/L=San Francisco/O=MyOrganization/CN=MyCA" -nodes -addext "keyUsage=critical,keyCertSign,cRLSign"
+    
+    /C=US：国家代码（Country）
+    /ST=California：州或省名（State）
+    /L=San Francisco：城市名（Locality）
+    /O=MyOrganization：组织名（Organization）
+    /CN=MyCA：通用名称（Common Name）
 
 快捷键
 https://code.visualstudio.com/docs/getstarted/keybindings#_keyboard-shortcuts-reference

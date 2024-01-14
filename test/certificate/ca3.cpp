@@ -91,10 +91,7 @@ bool generateCertificate(const std::string& commonName, bool isCA, const std::st
         }
         basicConstraints->ca = 1;
         basicConstraints->pathlen = nullptr;
-        // extension = X509_EXTENSION_create_by_NID(nullptr, NID_basic_constraints, 1, basicConstraints);
-        auto oct=ASN1_OCTET_STRING_new();
-        ASN1_OCTET_STRING_set(oct, (const unsigned char*)"critical,CA:TRUE", sizeof("critical,CA:TRUE")-1);
-        extension = X509_EXTENSION_create_by_NID(nullptr, NID_basic_constraints, 1,  oct);
+        X509_add1_ext_i2d(certificate, NID_basic_constraints,basicConstraints,0,X509_ADD_FLAG_DEFAULT);
         BASIC_CONSTRAINTS_free(basicConstraints);
     }
     else {

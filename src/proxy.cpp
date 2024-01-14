@@ -46,7 +46,7 @@ namespace hcpp
         co_return nx;
     }
 
-    awaitable<void> read_http_input(tcp_socket socket,std::shared_ptr<slow_dns> sdns,std::shared_ptr<socket_channel> https_channel)
+    awaitable<void> read_http_input(tcp_socket socket, std::shared_ptr<slow_dns> sdns, std::shared_ptr<socket_channel> https_channel)
     {
         using std::string, std::string_view;
         spdlog::debug("新连接 {}:{}", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
@@ -90,7 +90,7 @@ namespace hcpp
                 if (!check_req_line_1({req_body_before.data(), efl_1st}, target_endpoint, req_uri))
                 {
                     spdlog::info("检查请求行失败");
-                    co_await async_write(socket, asio::buffer("HTTP/1.1 400 Bad Request\r\n\r\n"_buf));
+                    co_await async_write(socket, "HTTP/1.1 400 Bad Request\r\n\r\n"_buf);
                     continue;
                 }
                 debug("请求行\n{}", string_view({req_body_before.data(), efl_1st}));
@@ -102,7 +102,7 @@ namespace hcpp
                 if (!parser_header(req_header, h))
                 {
                     spdlog::info("解析请求头失败");
-                    co_await async_write(socket, asio::buffer("HTTP/1.1 400 Bad Request\r\n\r\n"_buf));
+                    co_await async_write(socket, "HTTP/1.1 400 Bad Request\r\n\r\n"_buf);
                     continue;
                 }
 
@@ -110,34 +110,37 @@ namespace hcpp
 
                 auto remote_service = host + ":" + service;
                 // if(host=="hello"){
-                if(!host.empty()){
-                   co_await async_write(socket, asio::buffer("HTTP/1.0 200 Connection established\r\n\r\n"_buf));
-                   auto native_handle=socket.native_handle();
-                   socket.release();
-                   co_await https_channel->async_send(asio::error_code{},{.native_handle_=native_handle});
-                   co_return ;
-                }
 
                 if (method == "CONNECT" || !keep_alive_sock.contains(remote_service)) // TODO 这里判断哪些连接被缓存,应该多个ip判断
                 {
                     // debug("开始与远程端点建立连接:{}",target_endpoint.host_);
+                    if (!host.empty())
+                    {
+                        co_await async_write(socket, "HTTP/1.0 200 Connection established\r\n\r\n"_buf);
+                        // auto native_handle = socket.native_handle();
+                        // socket.release();
+                        spdlog::debug("转移到https");
+                        auto mve=std::make_shared<tls_client>(std::move(socket));
+                        co_await https_channel->async_send(asio::error_code{}, mve);
+                        co_return;
+                    }
                     auto executor = socket.get_executor();
 
-                    auto rrs = sdns->resolve_cache({host,service});
+                    auto rrs = sdns->resolve_cache({host, service});
                     if (!rrs)
                     {
-                        //TODO 解析出错应该提示
-                        rrs.emplace(co_await sdns->resolve({host,service}));
+                        // TODO 解析出错应该提示
+                        rrs.emplace(co_await sdns->resolve({host, service}));
                     }
 
                     auto rip = rrs.value();
                     auto respond_sock = std::make_shared<tcp_socket>(executor);
-                    //FIXME 默认完成处理器包装成协程后,传递参数反而有重载歧义,不得不写个0解决,这里在asio库不同的版本,编译可能出错
+                    // FIXME 默认完成处理器包装成协程后,传递参数反而有重载歧义,不得不写个0解决,这里在asio库不同的版本,编译可能出错
                     if (auto [error, remote_endpoint] = co_await asio::async_connect(*respond_sock, rip, asio::experimental::as_single(asio::use_awaitable), 0); error)
                     {
                         // 如果重试,则客户端可能超时,即使解析成功,socket已经被关闭了
                         spdlog::info("连接远程出错 -> {} {}", host, remote_endpoint.address().to_string());
-                        hcpp::slow_dns::get_slow_dns()->remove_svc({host,service}, remote_endpoint.address().to_string());
+                        hcpp::slow_dns::get_slow_dns()->remove_svc({host, service}, remote_endpoint.address().to_string());
                         co_return;
                     }
 
@@ -157,7 +160,7 @@ namespace hcpp
 
                         /// buffer传递原始字符串时一定要指定size大小,因为他会把普通字符串的最后的空字符也发送
                         // std::string r = "HTTP/1.0 200 Connection established\r\n\r\n";
-                        co_await async_write(*request_sock, asio::buffer("HTTP/1.0 200 Connection established\r\n\r\n"_buf));
+                        co_await async_write(*request_sock, "HTTP/1.0 200 Connection established\r\n\r\n"_buf);
                         debug("已建立http tunnel");
                         co_return;
                     }

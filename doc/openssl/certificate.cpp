@@ -7,6 +7,7 @@
 // Basic Constraints 表示当前证书绑定的实体否是ca,要想创建ca,则必须包含他
 // Subject Key Identifier CA证书必须包含
 // Authority Key Identifier 必须包含
+// Subject Alternative Name 需要包含dns名字
 // https://www.rfc-editor.org/rfc/rfc3280#section-4.2.1.10
 
 // ASN.1 DER(distinguished encoding rules)
