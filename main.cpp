@@ -38,7 +38,6 @@ namespace this_coro = asio::this_coro;
 
 awaitable<void> listener()
 {
-    // std::cout << std::this_thread::get_id() << std::endl;
     auto executor = co_await this_coro::executor;
 
     auto cc = std::make_shared<hcpp::socket_channel>(executor,10);

@@ -109,7 +109,8 @@ namespace hcpp
                 const auto &[method, host, service] = target_endpoint;
 
                 auto remote_service = host + ":" + service;
-                if(host=="hello"){
+                // if(host=="hello"){
+                if(!host.empty()){
                    co_await async_write(socket, asio::buffer("HTTP/1.0 200 Connection established\r\n\r\n"_buf));
                    auto native_handle=socket.native_handle();
                    socket.release();
@@ -131,7 +132,7 @@ namespace hcpp
 
                     auto rip = rrs.value();
                     auto respond_sock = std::make_shared<tcp_socket>(executor);
-                    // 默认完成处理器包装成协程后,传递参数反而有重载歧义,不得不写个0解决,这里在asio库不同的版本,编译可能出错
+                    //FIXME 默认完成处理器包装成协程后,传递参数反而有重载歧义,不得不写个0解决,这里在asio库不同的版本,编译可能出错
                     if (auto [error, remote_endpoint] = co_await asio::async_connect(*respond_sock, rip, asio::experimental::as_single(asio::use_awaitable), 0); error)
                     {
                         // 如果重试,则客户端可能超时,即使解析成功,socket已经被关闭了
