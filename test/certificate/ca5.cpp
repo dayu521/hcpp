@@ -1,12 +1,12 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
+#include <openssl/pem.h>
+#include <openssl/rand.h>
 
 #include <string>
+#include <cstring>
 
 // X509_new
-
-auto cert = X509_new();
-X509_free(*crt);
 
 // 创建pkey
 EVP_PKEY *generate_pkey()
@@ -18,14 +18,18 @@ EVP_PKEY *generate_pkey()
     ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     if (!ctx)
         /* Error occurred */
-        if (EVP_PKEY_keygen_init(ctx) <= 0)
-            /* Error */
-            if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0)
-                /* Error */
+        return nullptr;
+    if (EVP_PKEY_keygen_init(ctx) <= 0)
+        /* Error */
+        return nullptr;
+    if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0)
+        /* Error */
+        return nullptr;
+    /* Generate key */
+    if (EVP_PKEY_keygen(ctx, &pkey) <= 0)
+        /* Error */
+        return nullptr;
 
-                /* Generate key */
-                if (EVP_PKEY_keygen(ctx, &pkey) <= 0)
-                    /* Error */;
     return pkey;
 }
 
@@ -41,7 +45,7 @@ void set_version(X509 *cert)
 // https://www.rfc-editor.org/rfc/rfc5280#section-4.1.2.2
 void set_serialNumber(X509 *cert)
 {
-    char8_t buff[20];
+    unsigned char buff[20];
     if (RAND_bytes(buff, sizeof(buff)) != 1)
     {
         // 随机数生成失败，处理错误
@@ -67,7 +71,7 @@ void set_serialNumber(X509 *cert)
 // https://www.rfc-editor.org/rfc/rfc5280#section-4.1.2.4
 void add_issuer(X509 *cert)
 {
-    auto issuer = X509_NAME_new();
+    // auto issuer = X509_NAME_new();
     //   * country,
     //   * organization,
     //   * organizational unit,
@@ -79,25 +83,28 @@ void add_issuer(X509 *cert)
     //   * locality
     struct name_entry
     {
-        int nid;
-        const char *nid_val;
+        int nid_;
+        const char *nid_val_;
+        int nid_val_len_;
     };
     name_entry issuer[] = {
-        {NID_countryName, "CN"},
-        {NID_organizationName, "NoBody"},
-        {NID_organizationalUnitName, ""},
-        {NID_stateOrProvinceName, "JS"},
-        {NID_commonName, "Self CA"},
-        {NID_localityName, "SQ"},
+        {NID_countryName, "CN", sizeof("CN") - 1},
+        {NID_organizationName, "NoBody", sizeof("NoBody") - 1},
+        {NID_organizationalUnitName, "XX", sizeof("XX") - 1},
+        {NID_stateOrProvinceName, "JS", sizeof("JS") - 1},
+        {NID_commonName, "SelfCA", sizeof("SelfCA") - 1},
+        {NID_localityName, "SQ", sizeof("SQ") - 1},
     };
+
+    auto name = X509_NAME_new();
 
     for (auto &&i : issuer)
     {
-        X509_NAME_add_entry_by_NID(issuer, i.nid, MBSTRING_ASC, (const unsigned char *)i.nid_val, sizeof(i) - 1, -1, 0);
+        X509_NAME_add_entry_by_NID(name, i.nid_, MBSTRING_ASC, (const unsigned char *)i.nid_val_, i.nid_val_len_, -1, 0);
     }
     // X509_set_issuer_name
-    X509_set_issuer_name(cert, issuer);
-    X509_NAME_free(issuer);
+    X509_set_issuer_name(cert, name);
+    X509_NAME_free(name);
 }
 
 // Validity
@@ -125,13 +132,11 @@ void set_subject(X509 *cert)
 
 // Subject Public Key Info
 // https://www.rfc-editor.org/rfc/rfc5280#section-4.1.2.7
-void set_pubkey(X509 *cert)
+void set_pubkey(X509 *cert, EVP_PKEY *pkey)
 {
-    auto pkey = generate_pkey();
     X509_set_pubkey(cert, pkey);
 
     EVP_PKEY_free(pkey);
-    EVP_PKEY_CTX_free(ctx);
 }
 
 /*********扩展**********/
@@ -140,18 +145,21 @@ void set_pubkey(X509 *cert)
 void add_key_usage(X509 *caCert)
 {
     auto bb = ASN1_BIT_STRING_new();
-    ASN1_BIT_STRING_set_bit(bb, KU_CRL_SIGN, 1);
-    X509_add1_ext_i2d(caCert, NID_key_usage, bb, 0, X509_ADD_FLAG_DEFAULT);
+    // ASN1_BIT_STRING_set_bit(bb, 6, 1);
+    // ASN1_BIT_STRING_set_bit(bb, 5, 1);
+    char8_t bv=KU_KEY_CERT_SIGN | KU_CRL_SIGN;
+    ASN1_BIT_STRING_set(bb, (unsigned char *)&bv, sizeof(bv));
+    X509_add1_ext_i2d(caCert, NID_key_usage, bb, 1, X509_ADD_FLAG_DEFAULT);
     ASN1_BIT_STRING_free(bb);
 }
 
-void generate_key_id(X509 *cert,unsigned char* md, std::size_t & md_len)
+void generate_key_id(X509 *cert, unsigned char *md, std::size_t *md_len)
 {
     // 不要释放
     // auto pubkey2 = X509_get0_pubkey(pkey);
-
-    //https://www.openssl.org/docs/manmaster/man3/X509_pubkey_digest.html
-    X509_pubkey_digest(cert, EVP_sha1(), md, md_len);
+    // EVP_sha
+    // https://www.openssl.org/docs/manmaster/man3/X509_pubkey_digest.html
+    X509_pubkey_digest(cert, EVP_sha1(), md, (unsigned int *)md_len);
 
     // EVP_PKEY_get_raw_public_key(pkey)
     // EVP_PKEY
@@ -163,31 +171,31 @@ void generate_key_id(X509 *cert,unsigned char* md, std::size_t & md_len)
 void add_SKI(X509 *cert)
 {
     unsigned char md[EVP_MAX_MD_SIZE];
-    std::size_t md_len=0;
-    generate_key_id(cert,md,&md_len);
+    std::size_t md_len = 0;
+    generate_key_id(cert, md, &md_len);
 
     auto oct = ASN1_OCTET_STRING_new();
-    ASN1_OCTET_STRING_set(oct, md, sizeof(md_len));
+    ASN1_OCTET_STRING_set(oct, md, md_len);
     X509_add1_ext_i2d(cert, NID_subject_key_identifier, oct, 0, X509V3_ADD_DEFAULT);
     ASN1_OCTET_STRING_free(oct);
 }
 
 // Authority Key Identifier
 // https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.1
-void add_AKI(X509 *caCert)
+void add_AKI(X509 *cert)
 {
     unsigned char md[EVP_MAX_MD_SIZE];
-    std::size_t md_len=0;
-    generate_key_id(cert,md,&md_len);
+    std::size_t md_len = 0;
+    generate_key_id(cert, md, &md_len);
 
     auto oct = ASN1_OCTET_STRING_new();
-    ASN1_OCTET_STRING_set(oct, md, sizeof(md_len));
+    ASN1_OCTET_STRING_set(oct, md, md_len);
 
     auto akid = AUTHORITY_KEYID_new();
     akid->keyid = oct;
     // akid->issuer = names;
     // akid->serial = serial;
-    X509_add1_ext_i2d(caCert, NID_authority_key_identifier, akid, 0, X509V3_ADD_DEFAULT);
+    X509_add1_ext_i2d(cert, NID_authority_key_identifier, akid, 0, X509V3_ADD_DEFAULT);
     ASN1_OCTET_STRING_free(oct);
 }
 
@@ -222,8 +230,7 @@ void add_BS(X509 *caCert)
 {
     auto bs = BASIC_CONSTRAINTS_new();
     bs->ca = ASN1_BOOLEAN(true);
-    X509_add1_ext_i2d(caCert, NID_basic_constraints, bs, 0, X509V3_ADD_DEFAULT);
-    ASN1_OCTET_STRING_free(oct);
+    X509_add1_ext_i2d(caCert, NID_basic_constraints, bs, 1, X509V3_ADD_DEFAULT);
 }
 
 // 签名
@@ -231,4 +238,73 @@ void sign(X509 *cert)
 {
     auto pkey = generate_pkey();
     X509_sign(cert, pkey, EVP_sha256());
+}
+
+void print_key(EVP_PKEY *pkey);
+
+void print_cert(X509 *cert)
+{
+    BIO *bio = BIO_new(BIO_s_mem());
+    PEM_write_bio_X509(bio, cert);
+    auto cert_size = BIO_pending(bio);
+    auto cert_array = new char8_t[cert_size + 1];
+    BIO_read(bio, cert_array, cert_size);
+    BIO_free_all(bio);
+
+    for (size_t i = 0; i < cert_size; i++)
+    {
+        printf("%c", cert_array[i]);
+    }
+}
+
+int main()
+{
+    auto cert = X509_new();
+
+    auto pkey = generate_pkey();
+    if (pkey == NULL)
+        return -1;
+    // print_key(pkey);
+
+    set_validity(cert);
+    set_serialNumber(cert);
+    add_issuer(cert);
+    set_subject(cert);
+    add_SAN(cert);
+    add_AKI(cert);
+    add_SKI(cert);
+    add_key_usage(cert);
+    add_BS(cert);
+    set_pubkey(cert, pkey);
+    sign(cert);
+
+    print_cert(cert);
+
+    // Save the CA certificate to a file.
+    // auto certfile="cert";
+
+    FILE *caCertFile = fopen("hcpp.crt", "wb");
+    if (!caCertFile)
+    {
+        X509_free(cert);
+        return false;
+    }
+    PEM_write_X509(caCertFile, cert);
+
+    fclose(caCertFile);
+    X509_free(cert);
+    return 0;
+}
+void print_key(EVP_PKEY *pkey)
+{
+    BIO *bio = BIO_new(BIO_s_mem());
+    PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL);
+    auto pkey_size = BIO_pending(bio);
+    auto pkey_array = new char8_t[pkey_size + 1];
+    BIO_read(bio, pkey_array, pkey_size);
+    BIO_free_all(bio);
+    for (size_t i = 0; i < pkey_size; i++)
+    {
+        printf("%c", pkey_array[i]);
+    }
 }

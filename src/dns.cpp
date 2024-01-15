@@ -18,7 +18,6 @@
 
 // FIXME 注意,如果包含coro,编译失败,asio 1.28
 #include <asio/experimental/concurrent_channel.hpp>
-// #include <asio/experimental/channel.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -232,6 +231,8 @@ namespace hcpp
         // 单纯的使用基本的加锁只是解决线程的并发问题.需要采用高级协议,例如,消息队列模型
         //  这样,发送者可以对未解析完成的请求,及时超时返回失败.而消费者可以多个并发地进行解析
         //  解析时可以发现其他消费者是否已经解析,进而跳过不必要的解析.解析完成 发送消息唤醒
+
+        //HACK 不直接使用channel https://github.com/chriskohlhoff/asio/issues/1175
         asio::co_spawn(ex, async_resolve(cc, hedp), detached);
 
         std::variant<edp_lists, std::monostate> results = co_await (cc->async_receive() || t.async_wait());

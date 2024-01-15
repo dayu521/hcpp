@@ -135,7 +135,7 @@ namespace hcpp
 
                     auto rip = rrs.value();
                     auto respond_sock = std::make_shared<tcp_socket>(executor);
-                    // FIXME 默认完成处理器包装成协程后,传递参数反而有重载歧义,不得不写个0解决,这里在asio库不同的版本,编译可能出错
+                    // XXX 默认完成处理器包装成协程后,传递参数反而有重载歧义,不得不写个0解决,这里在asio库不同的版本,编译可能出错
                     if (auto [error, remote_endpoint] = co_await asio::async_connect(*respond_sock, rip, asio::experimental::as_single(asio::use_awaitable), 0); error)
                     {
                         // 如果重试,则客户端可能超时,即使解析成功,socket已经被关闭了

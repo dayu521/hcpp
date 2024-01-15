@@ -6,19 +6,15 @@ if is_os("windows") then
     add_cxxflags("/source-charset:utf-8")
 end
 
--- https://gitee.com/californiacat/lsf.git
-add_requires("openssl")
+add_requires("asio")
 add_requires("spdlog")
 
-target("ca2")
+target("coro")
     set_kind("binary")
-    add_files("ca2.cpp")
-    add_packages("openssl") 
+    add_files("coro.cpp")
+    add_packages("asio") 
+    add_packages("spdlog") 
 
-target("ca5")
-    set_kind("binary")
-    add_files("ca5.cpp")
-    add_packages("openssl") 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io
 --

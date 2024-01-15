@@ -23,7 +23,7 @@ target("hcpp")
         add_cxxflags("/source-charset:utf-8")
     end
 
-includes("test/certificate")
+includes("test")
 
 -- https://zhuanlan.zhihu.com/p/640701847
 -- https://zhuanlan.zhihu.com/p/479977993

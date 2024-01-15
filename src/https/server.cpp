@@ -14,13 +14,6 @@ namespace hcpp
     {
         // FIXME 这个需要用智能指针保证executor在https线程时是存在的吗?
         io_context executor;
-        auto dd = [&](auto p)
-        {
-            spdlog::debug("收到主协程退出信号");
-            executor.stop();
-            delete p;
-        };
-        std::unique_ptr<int, decltype(dd)> gg(new int, dd);
 
         // 在当前协程运行
         auto https_listener = [&executor, src]() -> awaitable<void>
@@ -33,14 +26,15 @@ namespace hcpp
             }
         };
 
+        auto work_guard = make_work_guard(executor);
+
         auto https_service = [&executor]()
         {
             spdlog::debug("httpserver线程创建成功");
             while (!executor.stopped())
             {
                 try
-                {
-                    auto work_guard = make_work_guard(executor);
+                {           
                     executor.run();
                 }
                 catch (const std::exception &e)
