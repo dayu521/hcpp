@@ -135,8 +135,6 @@ void set_subject(X509 *cert)
 void set_pubkey(X509 *cert, EVP_PKEY *pkey)
 {
     X509_set_pubkey(cert, pkey);
-
-    EVP_PKEY_free(pkey);
 }
 
 /*********扩展**********/
@@ -147,7 +145,7 @@ void add_key_usage(X509 *caCert)
     auto bb = ASN1_BIT_STRING_new();
     // ASN1_BIT_STRING_set_bit(bb, 6, 1);
     // ASN1_BIT_STRING_set_bit(bb, 5, 1);
-    char8_t bv=KU_KEY_CERT_SIGN | KU_CRL_SIGN;
+    char8_t bv = KU_KEY_CERT_SIGN | KU_CRL_SIGN;
     ASN1_BIT_STRING_set(bb, (unsigned char *)&bv, sizeof(bv));
     X509_add1_ext_i2d(caCert, NID_key_usage, bb, 1, X509_ADD_FLAG_DEFAULT);
     ASN1_BIT_STRING_free(bb);
@@ -193,8 +191,8 @@ void add_AKI(X509 *cert)
 
     auto akid = AUTHORITY_KEYID_new();
     akid->keyid = oct;
-    // akid->issuer = names;
-    // akid->serial = serial;
+    akid->issuer = nullptr;
+    akid->serial = nullptr;
     X509_add1_ext_i2d(cert, NID_authority_key_identifier, akid, 0, X509V3_ADD_DEFAULT);
     ASN1_OCTET_STRING_free(oct);
 }
@@ -226,17 +224,21 @@ void add_SAN(X509 *caCert)
 
 // Basic Constraints
 // https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.9
-void add_BS(X509 *caCert)
+void add_BS(X509 *cert)
 {
-    auto bs = BASIC_CONSTRAINTS_new();
-    bs->ca = ASN1_BOOLEAN(true);
-    X509_add1_ext_i2d(caCert, NID_basic_constraints, bs, 1, X509V3_ADD_DEFAULT);
+    auto e1 = X509V3_EXT_conf_nid(nullptr, nullptr, NID_basic_constraints, "CA:true");
+    X509_EXTENSION_set_critical(e1, 1);
+    X509_add_ext(cert, e1, -1);
+    // XXX为啥不正确
+    //  auto bs = BASIC_CONSTRAINTS_new();
+    //  bs->ca = 1;
+    //  bs->pathlen = nullptr;
+    //  X509_add1_ext_i2d(cert, NID_basic_constraints, bs, 1, X509V3_ADD_DEFAULT);
 }
 
 // 签名
-void sign(X509 *cert)
+void sign(X509 *cert, EVP_PKEY *pkey)
 {
-    auto pkey = generate_pkey();
     X509_sign(cert, pkey, EVP_sha256());
 }
 
@@ -266,28 +268,42 @@ int main()
         return -1;
     // print_key(pkey);
 
+    set_version(cert);
     set_validity(cert);
     set_serialNumber(cert);
     add_issuer(cert);
     set_subject(cert);
-    add_SAN(cert);
+    // add_SAN(cert);
+    add_BS(cert);
     add_AKI(cert);
     add_SKI(cert);
     add_key_usage(cert);
-    add_BS(cert);
     set_pubkey(cert, pkey);
-    sign(cert);
+    sign(cert, pkey);
 
-    print_cert(cert);
+    // print_cert(cert);
+
+    // Save the private key to a file.
+    FILE *privateKeyFile = fopen("hcpp.key.pem", "w");
+    if (!privateKeyFile)
+    {
+        return -1;
+    }
+    if (!PEM_write_PrivateKey(privateKeyFile, pkey, nullptr, nullptr, 0, nullptr, nullptr))
+    {
+        fclose(privateKeyFile);
+        return -1;
+    }
+    fclose(privateKeyFile);
 
     // Save the CA certificate to a file.
     // auto certfile="cert";
 
-    FILE *caCertFile = fopen("hcpp.crt", "wb");
+    FILE *caCertFile = fopen("hcpp.crt.pem", "wb");
     if (!caCertFile)
     {
         X509_free(cert);
-        return false;
+        return -1;
     }
     PEM_write_X509(caCertFile, cert);
 

@@ -72,6 +72,7 @@ namespace hcpp
         // }
         //FIXME 不需要重新绑定socket到当前执行器吗?
         ssl::stream<tcp_socket> cli(std::move(client->socket_), context);
+        // std::string bcnf(1024,'\0');
         co_await cli.async_handshake(ssl::stream_base::server);
         std::string bf(1024, '\0');
         auto n = co_await cli.async_read_some(asio::buffer(bf, bf.size()));

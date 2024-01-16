@@ -13,8 +13,8 @@ curl测试
 certificate 
     https://www.rfc-editor.org/rfc/rfc5246#appendix-B
 
-rsa 密钥
-    它的持有者可以使用它创建认证签名请求,然后向ca中心进行认证
+pkey 密钥
+    它的持有者可以由它创建认证签名请求,然后向ca中心进行认证
 
 x509 csr 认证签名请求
     请求认证中心给一个认证.请求中包含请求者的信息以及它的公钥
@@ -32,7 +32,9 @@ ca certificate
     创建完ca的证书后,通常有签名请求,就通过openssl req 命令中的 -CA 和 -CAkey参数指定这个CA的证书以及CA的证书对应私钥
     来给证书请求进行签名
 
-    创建证书请求时,自己签名自己,就创建了自签名证书,也就可作为ca证书
+    创建证书请求时,自己签名自己就创建了自签名证书
+    要想成为ca,则需要一些必要的其他属性和扩展
+    //https://www.rfc-editor.org/rfc/rfc5280
 
 https://learn.microsoft.com/zh-cn/azure/iot-hub/reference-x509-certificates
 
