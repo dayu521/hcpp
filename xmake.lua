@@ -10,7 +10,7 @@ add_requires("spdlog")
 
 target("hcpp")
     set_kind("binary")
-    add_files("main.cpp","src/*.cpp","src/https/*.cpp")
+    add_files("main.cpp","src/*.cpp","src/https/*.cpp","src/httpclient/*.cpp")
     add_deps("lsf") --  https://xmake.io/#/manual/project_target?id=add-target-dependencies
     add_packages("spdlog")  --  https://xmake.io/#/manual/project_target?id=add-package-dependencies
     add_packages("asio") 

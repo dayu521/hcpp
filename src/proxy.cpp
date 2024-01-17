@@ -2,6 +2,7 @@
 #include "parser.h"
 #include "http_tunnel.h"
 #include "dns.h"
+#include "httpclient/httpclient.h"
 
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
@@ -39,7 +40,6 @@ namespace hcpp
         while (nx < total_bytes)
         {
             auto x = co_await input.async_read_some(asio::buffer(data));
-            auto f = input.async_read_some(asio::buffer(data));
             nx += x;
             co_await async_write(output, asio::buffer(data, x));
         }
