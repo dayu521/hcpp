@@ -4,6 +4,7 @@
 
 #include <shared_mutex>
 #include <mutex>
+#include <set>
 
 using namespace std;
 
@@ -15,12 +16,13 @@ void lock_test()
         std::shared_lock<std::shared_mutex> m2(smutex_);
         std::shared_lock<std::shared_mutex> m3(smutex_);
         std::shared_lock<std::shared_mutex> m4(smutex_);
-    } //ok
+    } // ok
 
     {
         std::shared_lock<std::shared_mutex> m3(smutex_);
+        // 阻塞,一直等待共享锁释放
         std::unique_lock<std::shared_mutex> m2(smutex_);
-    }//一直等待共享锁释放
+    }
 }
 
 void regex_test()
@@ -44,8 +46,38 @@ void regex_test()
     std::string const s = "This is a string";
 }
 
+struct block
+{
+    int begin_;
+    int size_;
+};
+
+bool operator<(const block &fk, int lk) { return  !(fk.begin_ + fk.size_>lk); }
+bool operator<(int lk, const block &fk) { return lk < fk.begin_; }
+bool operator<(const block &fk1, const block &fk2) { return fk1.begin_ < fk2.begin_; }
+
+void set_test()
+{
+    std::set<block, std::less<>> c = {{1, 10}, {11, 30}, {41, 5},{46, 5}};
+    auto pf = [&c](int i)
+    {
+        if (auto search = c.find(i); search != c.end())
+            std::cout << "Found " << search->begin_ << '\n';
+        else
+            std::cout << "Not found\n";
+    };
+    pf(1);
+    pf(11);
+    pf(30);
+
+    pf(41);
+    pf(46);
+    pf(51);
+}
+
 int main(int argc, char const *argv[])
 {
-    lock_test();
+    // lock_test();
+    set_test();
     return 0;
 }

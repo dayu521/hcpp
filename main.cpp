@@ -26,6 +26,7 @@
 #include "proxy.h"
 #include "dns.h"
 #include "https/server.h"
+#include "http/httpclient.h"
 
 using asio::awaitable;
 using asio::co_spawn;
@@ -50,7 +51,8 @@ awaitable<void> listener()
     for (;;)
     {
         auto socket = co_await acceptor.async_accept();
-        co_spawn(executor, read_http_input(std::move(socket), hcpp::slow_dns::get_slow_dns(),cc), detached);
+        // co_spawn(executor, read_http_input(std::move(socket), hcpp::slow_dns::get_slow_dns(),cc), detached);
+        co_spawn(executor, http_service(hcpp::http_client(std::move(socket)), hcpp::slow_dns::get_slow_dns(),cc), detached);
     }
 }
 

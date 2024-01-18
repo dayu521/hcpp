@@ -1,32 +1,14 @@
 add_rules("mode.debug", "mode.release")
 
 set_languages("c++20")
+if is_os("windows") then
+    add_defines("MSVC_SPECIAL")
+    add_cxxflags("/source-charset:utf-8")
+end
 
--- https://gitee.com/californiacat/lsf.git
-includes("lib/lsf")
-add_requires("asio")
-add_requires("openssl")
-add_requires("spdlog")
-
-target("hcpp")
+target("a")
     set_kind("binary")
-    add_files("main.cpp","src/*.cpp","src/https/*.cpp","src/http/*.cpp")
-    add_deps("lsf") --  https://xmake.io/#/manual/project_target?id=add-target-dependencies
-    add_packages("spdlog")  --  https://xmake.io/#/manual/project_target?id=add-package-dependencies
-    add_packages("asio") 
-    add_packages("openssl") 
-    add_includedirs("src")
-    set_policy("build.c++.modules", true)
-    -- add_ldflags("-static")
-    if is_os("windows") then
-        add_defines("MSVC_SPECIAL")
-        add_cxxflags("/source-charset:utf-8")
-    end
-
-includes("test")
-
--- https://zhuanlan.zhihu.com/p/640701847
--- https://zhuanlan.zhihu.com/p/479977993
+    add_files("a.cpp")
 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io

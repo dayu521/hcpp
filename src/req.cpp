@@ -10,8 +10,6 @@ inline std::regex valreg{R"(^[\w]$)"};
 
 bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
 {
-    // string_view svl = str_line;
-    // string_view error = "";
     //"CONNECT * HTTP/1.1\r\n";
     {
         auto method_end = svl.find_first_of(" ");
@@ -31,7 +29,7 @@ bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
         {
             goto L;
         }
-        auto endp_end = uri_end;
+        auto service_end = uri_end;
         if (ts.method_ != "CONNECT")
         {
             constexpr auto ll = sizeof("http://") - 1;
@@ -42,26 +40,26 @@ bool check_req_line_1(string_view svl, RequestSvcInfo &ts, string &req_line_new)
 
             svl.remove_prefix(ll);
             uri_end -= ll;
-            endp_end -= ll;
+            service_end -= ll;
             auto slash_bengin = svl.substr(0,uri_end).find_first_of('/');
             if (slash_bengin != string_view::npos)
             {
-                endp_end = slash_bengin;
+                service_end = slash_bengin;
                 // 请求uri改写完成
                 req_line_new += svl.substr(slash_bengin);
             }
             else
             {
                 req_line_new += '/';
-                req_line_new+=svl.substr(endp_end);
+                req_line_new+=svl.substr(service_end);
             }
         }
 
         std::regex endpoint_reg(R"(^([\w\.\-]+)(:(0|[1-9]\d{0,4}))?)");
         std::cmatch m;
-        if (!std::regex_match(svl.begin(), svl.begin() + endp_end, m, endpoint_reg))
+        if (!std::regex_match(svl.begin(), svl.begin() + service_end, m, endpoint_reg))
         {
-            spdlog::error("匹配endpoint_reg 正则表达式失败 输入为: {}", svl.substr(0, endp_end));
+            spdlog::error("匹配endpoint_reg 正则表达式失败 输入为: {}", svl.substr(0, service_end));
             goto L;
         }
 

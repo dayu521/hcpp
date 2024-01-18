@@ -2,7 +2,7 @@
 #include "parser.h"
 #include "http_tunnel.h"
 #include "dns.h"
-#include "httpclient/httpclient.h"
+#include "http/httpclient.h"
 
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
@@ -120,7 +120,7 @@ namespace hcpp
                         // auto native_handle = socket.native_handle();
                         // socket.release();
                         spdlog::debug("转移到https");
-                        auto mve=std::make_shared<tls_client>(std::move(socket));
+                        auto mve = std::make_shared<tls_client>(std::move(socket));
                         co_await https_channel->async_send(asio::error_code{}, mve);
                         co_return;
                     }
@@ -314,6 +314,33 @@ namespace hcpp
     inline string match_str(string_view src, string_view p)
     {
         return {};
+    }
+
+    awaitable<void> http_service(http_client client, std::shared_ptr<slow_dns> sdns, std::shared_ptr<socket_channel> https_channel)
+    {
+        while (true)
+        {
+            co_await client.wait();
+            auto ss = client.get_memory();
+            http_request req;
+
+            auto p1 = req.get_first_parser();
+
+            if (auto p2 = co_await p1.parser_reuqest_line(ss, req);p2)
+            {
+                if (auto p3 = co_await (*p2).parser_headers(ss, req); p3)
+                {
+                    if(req.method_==http_request::CONNECT){
+
+                        break;
+                    }
+                    if (auto p4 = co_await (*p3).parser_msg_body(ss, req); p4)
+                    {
+                        continue;
+                    }
+                }
+            }
+        }
     }
 
 } // namespace hcpp
