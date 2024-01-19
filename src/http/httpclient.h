@@ -1,6 +1,6 @@
-#ifndef HTTP_CLIENT_HTTP_CLIENT_H
-#define HTTP_CLIENT_HTTP_CLIENT_H
-#include "endpointbase.h"
+#ifndef SRC_HTTP_HTTPCLIENT
+#define SRC_HTTP_HTTPCLIENT
+#include "memory.h"
 #include "parser.h"
 #include "socket_wrap.h"
 
@@ -30,16 +30,8 @@ namespace hcpp
     {
         enum method
         {
-            GET,
-            POST,
-            PUT,
-            DELETE,
-            HEAD,
             CONNECT,
-            OPTIONS,
-            TRACE,
-            PATCH,
-            UNKNOWN
+            OTHER
         };
 
         using http_msg_line = std::string;
@@ -47,6 +39,8 @@ namespace hcpp
         using http_headers = std::unordered_map<std::string, http_msg_line>;
 
         method method_;
+        std::string version_;
+        std::string method_str_;
         std::string host_;
         std::string url_;
         std::string port_;
@@ -56,15 +50,18 @@ namespace hcpp
         request_line get_first_parser();
     };
 
-    class http_client : public endpoint_base
+    class http_client
     {
-    public:
-        awaitable<void> wait();
 
     public:
-        http_client(tcp_socket &&sock) : endpoint_base(std::make_shared<socket_memory>(std::move(sock))) {}
+        http_client(tcp_socket &&sock);
+
+        std::shared_ptr<memory> get_memory(){return mem_;}
+
+    private:
+        std::shared_ptr<memory> mem_;
     };
 
 } // namespace hcpp
 
-#endif
+#endif /* SRC_HTTP_HTTPCLIENT */

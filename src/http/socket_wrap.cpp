@@ -85,19 +85,21 @@ namespace hcpp
         if(i==buffs_.end()){
             return "";
         }
+        assert(index_>=i->begin_);
         return std::string_view(i->data_.begin()+(index_-i->begin_),i->data_.end());
     }
 
     void socket_memory::remove_some(std::size_t index)
     {
+        index_+=index;
         for(auto && i : buffs_){
-            if(i.begin_+i.data_.size()<index){
+            if(i.begin_+i.data_.size()<index_){
                 buffs_.erase(i);
             }else{
                 break;
             }
         }
-        index_+=index;
+        
     }
 
     bool hcpp::socket_memory::eof()

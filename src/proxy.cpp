@@ -316,27 +316,40 @@ namespace hcpp
         return {};
     }
 
-    awaitable<void> http_service(http_client client, std::shared_ptr<slow_dns> sdns, std::shared_ptr<socket_channel> https_channel)
+    awaitable<void> http_service(http_client client, std::shared_ptr<http_server> server, std::shared_ptr<socket_channel> https_channel)
     {
         while (true)
         {
-            co_await client.wait();
             auto ss = client.get_memory();
+            co_await ss->wait();
             http_request req;
 
             auto p1 = req.get_first_parser();
 
-            if (auto p2 = co_await p1.parser_reuqest_line(ss, req);p2)
+            if (auto p2 = co_await p1.parser_reuqest_line(ss, req); p2)
             {
                 if (auto p3 = co_await (*p2).parser_headers(ss, req); p3)
                 {
-                    if(req.method_==http_request::CONNECT){
-
+                    if (req.method_ == http_request::CONNECT)
+                    {
                         break;
                     }
-                    if (auto p4 = co_await (*p3).parser_msg_body(ss, req); p4)
+                    else
                     {
-                        continue;
+                        req.headers_.erase("proxy-connection");
+                        std::string req_line=req.method_str_+" "+req.url_+" "+req.version_+"\r\n";
+                        for (auto &&header : req.headers_)
+                        {
+                            req_line += header.second;
+                        }
+                        req_line += "\r\n";
+
+                        auto w = co_await server->wait(req.host_, req.port_);
+
+                        if (auto p4 = co_await (*p3).parser_msg_body(ss, req); p4)
+                        {
+                            continue;
+                        }
                     }
                 }
             }

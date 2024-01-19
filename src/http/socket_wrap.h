@@ -1,7 +1,7 @@
-#ifndef HTTP_CLIENT_SOCKET_WRAP_H
-#define HTTP_CLIENT_SOCKET_WRAP_H
+#ifndef SRC_HTTP_SOCKET_WRAP
+#define SRC_HTTP_SOCKET_WRAP
 
-#include "endpointbase.h"
+#include "memory.h"
 
 #include <asio/ip/tcp.hpp>
 #include <asio/use_awaitable.hpp>
@@ -45,4 +45,4 @@ namespace hcpp
 
 } // namespace hcpp
 
-#endif
+#endif /* SRC_HTTP_SOCKET_WRAP */

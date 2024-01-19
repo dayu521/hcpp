@@ -1,5 +1,6 @@
 #include "httpclient.h"
 #include "parser.h"
+#include "socket_wrap.h"
 
 #include <regex>
 
@@ -12,24 +13,8 @@ namespace hcpp
     {
         if (sv == "CONNECT")
             return http_request::method::CONNECT;
-        if (sv == "GET")
-            return http_request::method::GET;
-        if (sv == "POST")
-            return http_request::method::POST;
-        if (sv == "PUT")
-            return http_request::method::PUT;
-        if (sv == "DELETE")
-            return http_request::method::DELETE;
-        if (sv == "HEAD")
-            return http_request::method::HEAD;
-        if (sv == "OPTIONS")
-            return http_request::method::OPTIONS;
-        if (sv == "TRACE")
-            return http_request::method::TRACE;
-        if (sv == "PATCH")
-            return http_request::method::PATCH;
-        
-        return http_request::method::UNKNOWN;
+
+        return http_request::method::OTHER;
     }
 
     awaitable<std::optional<request_headers>> hcpp::request_line::parser_reuqest_line(std::shared_ptr<memory> m, http_request &h)
@@ -45,7 +30,8 @@ namespace hcpp
             {
                 goto L;
             }
-            h.method_ = get_method(svl.substr(0, method_end));
+            h.method_str_=svl.substr(0, method_end);
+            h.method_ = get_method(h.method_str_);
             svl.remove_prefix(method_end + 1);
 
             // host和port
@@ -109,6 +95,7 @@ namespace hcpp
             svl.remove_prefix(url_end + 1);
 
             // 检查http协议版本
+            h.version_=svl.substr(0, svl.size()-2);
             if (!svl.starts_with("HTTP/"))
             {
                 // error = "HTTP/1.1 405 Method Not Allowed";
@@ -144,7 +131,7 @@ namespace hcpp
         auto rm = sv.size();
         if (sv.starts_with("\r\n"))
         {
-            co_return std::nullopt;
+            co_return std::make_optional<msg_body>();
         }
 
         if (parser_header(sv, h.headers_))
@@ -164,9 +151,8 @@ namespace hcpp
         return {};
     }
 
-    awaitable<void> http_client::wait()
+    http_client::http_client(tcp_socket &&sock) : mem_(std::make_shared<socket_memory>(std::move(sock)))
     {
-        co_await get_memory()->wait();
     }
 
 } // namespace hcpp

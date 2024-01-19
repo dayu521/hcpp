@@ -52,7 +52,8 @@ awaitable<void> listener()
     {
         auto socket = co_await acceptor.async_accept();
         // co_spawn(executor, read_http_input(std::move(socket), hcpp::slow_dns::get_slow_dns(),cc), detached);
-        co_spawn(executor, http_service(hcpp::http_client(std::move(socket)), hcpp::slow_dns::get_slow_dns(),cc), detached);
+        auto server=std::make_shared<hcpp::http_server>(hcpp::endpoint_cache::get_instance(),hcpp::slow_dns::get_slow_dns());
+        co_spawn(executor, http_service(hcpp::http_client(std::move(socket)), server,cc), detached);
     }
 }
 
