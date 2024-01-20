@@ -3,6 +3,7 @@
 #include "http_tunnel.h"
 #include "dns.h"
 #include "http/httpclient.h"
+#include "http/tunnel.h"
 
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
@@ -154,9 +155,9 @@ namespace hcpp
                     {
 
                         auto request_sock = std::make_shared<tcp_socket>(std::move(socket));
-                        co_spawn(executor, send_session({request_sock, respond_sock, host}), detached);
+                        co_spawn(executor, bind_write({request_sock, respond_sock, host}), detached);
                         // 响应协程
-                        co_spawn(executor, receive_session({request_sock, respond_sock, host}), detached);
+                        co_spawn(executor, bind_read({request_sock, respond_sock, host}), detached);
 
                         /// buffer传递原始字符串时一定要指定size大小,因为他会把普通字符串的最后的空字符也发送
                         // std::string r = "HTTP/1.0 200 Connection established\r\n\r\n";
@@ -316,11 +317,58 @@ namespace hcpp
         return {};
     }
 
-    awaitable<void> http_service(http_client client, std::shared_ptr<http_server> server, std::shared_ptr<socket_channel> https_channel)
+    // TODO 根据规范里的顺序进行读取.其中content-length是在Chunked之后
+    std::optional<std::size_t> msg_body_size(const http_headers &header)
     {
+        if (header.contains("transfer-encoding"))
+        {
+            // TODO Chunked
+            spdlog::error("未实现 Chunked");
+            return std::nullopt;
+        }
+        else if (header.contains("content-length"))
+        {
+            string cl = header.at("content-length");
+            static std::regex digit(R"(0|[1-9]\d{0,10})");
+            std::smatch m;
+            if (!std::regex_search(cl, m, digit))
+            {
+                spdlog::info("Content-Length字段不合法 {}", cl);
+                return std::nullopt;
+            }
+
+            return std::stoul(m[0].str());
+        }
+        return std::nullopt;
+    }
+
+    awaitable<std::size_t> transfer_message(std::shared_ptr<hcpp::memory> from, std::shared_ptr<hcpp::memory> to, std::size_t total_bytes)
+    {
+        auto nx = 0;
+        auto som_str = from->get_some();
+        if (!som_str.empty())
+        {
+            co_await to->async_write_all(som_str);
+            from->remove_some(som_str.size());
+            nx += som_str.size();
+        }
+        while (nx < total_bytes)
+        {
+            auto str = co_await from->async_load_some();
+            co_await to->async_write_all(str);
+            from->remove_some(str.size());
+            nx += str.size();
+        }
+        co_return nx;
+    }
+
+    awaitable<void> http_proxy(http_client client, std::shared_ptr<socket_channel> https_channel)
+    {
+        http_server server(hcpp::endpoint_cache::get_instance(),hcpp::slow_dns::get_slow_dns());
         while (true)
         {
             auto ss = client.get_memory();
+            ss->reset();
             co_await ss->wait();
             http_request req;
 
@@ -332,23 +380,46 @@ namespace hcpp
                 {
                     if (req.method_ == http_request::CONNECT)
                     {
-                        break;
                     }
                     else
                     {
                         req.headers_.erase("proxy-connection");
-                        std::string req_line=req.method_str_+" "+req.url_+" "+req.version_+"\r\n";
+                        std::string req_line = req.method_str_ + " " + req.url_ + " " + req.version_ + "\r\n";
                         for (auto &&header : req.headers_)
                         {
                             req_line += header.second;
                         }
                         req_line += "\r\n";
 
-                        auto w = co_await server->wait(req.host_, req.port_);
+                        auto w = co_await server.wait(req.host_, req.port_);
 
-                        if (auto p4 = co_await (*p3).parser_msg_body(ss, req); p4)
+                        co_await w->async_write_all(req_line);
+
+                        auto total_bytes = msg_body_size(req.headers_);
+                        if (total_bytes)
                         {
-                            continue;
+                            co_await transfer_message(ss, w, *total_bytes);
+                        }
+
+                        http_response rp;
+                        auto p1 = rp.get_first_parser();
+                        if (auto p2 = co_await p1.parser_response_line(w, rp); p2)
+                        {
+                            if (auto p3 = co_await (*p2).parser_headers(w, rp); p3)
+                            {
+                                std::string rp_line = rp.response_line_;
+                                for (auto &&header : rp.headers_)
+                                {
+                                    rp_line += header.second;
+                                }
+                                rp_line += "\r\n";
+                                co_await ss->async_write_all(rp_line);
+                                auto total_bytes = msg_body_size(rp.headers_);
+                                if (total_bytes)
+                                {
+                                    co_await transfer_message(w, ss, *total_bytes);
+                                }
+                            }
                         }
                     }
                 }

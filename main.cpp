@@ -43,7 +43,7 @@ awaitable<void> listener()
 
     auto cc = std::make_shared<hcpp::socket_channel>(executor,10);
 
-    co_spawn(executor,hcpp::https_listen(cc),detached);
+    // co_spawn(executor,hcpp::https_listen(cc),detached);
 
     tcp_acceptor acceptor(executor, {tcp::v4(), 55555});
     auto d = acceptor.local_endpoint();
@@ -52,8 +52,7 @@ awaitable<void> listener()
     {
         auto socket = co_await acceptor.async_accept();
         // co_spawn(executor, read_http_input(std::move(socket), hcpp::slow_dns::get_slow_dns(),cc), detached);
-        auto server=std::make_shared<hcpp::http_server>(hcpp::endpoint_cache::get_instance(),hcpp::slow_dns::get_slow_dns());
-        co_spawn(executor, http_service(hcpp::http_client(std::move(socket)), server,cc), detached);
+        co_spawn(executor, http_proxy(hcpp::http_client(std::move(socket)),cc), detached);
     }
 }
 
@@ -107,7 +106,7 @@ int main(int argc, char **argv)
                 self(self, i);
             }
         };
-        create_thread(create_thread, 3);
+        // create_thread(create_thread, 3);
 
         co_spawn(io_context, listener(), [&io_context](std::exception_ptr eptr)
                  {

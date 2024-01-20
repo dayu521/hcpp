@@ -2,6 +2,8 @@
 #define SRC_HTTP_HTTPSERVER
 #include "memory.h"
 #include "dns.h"
+#include "http.h"
+#include "socket_wrap.h"
 
 #include <optional>
 #include <shared_mutex>
@@ -10,17 +12,10 @@
 
 namespace hcpp
 {
-
-    struct http_response;
-
-    struct msg_body2
-    {
-        awaitable<bool> parser_msg_body(std::shared_ptr<memory> m, http_response &);
-    };
-
     struct response_headers
     {
-        awaitable<std::optional<msg_body2>> parser_headers(std::shared_ptr<memory> m, http_response &);
+        std::size_t header_end_;
+        awaitable<std::optional<msg_body>> parser_headers(std::shared_ptr<memory> m, http_response &);
     };
 
     struct response_line
@@ -30,14 +25,11 @@ namespace hcpp
 
     struct http_response
     {
-        using http_msg_line = std::string;
-        using http_msg_body = std::vector<std::string>;
-        using http_headers = std::unordered_map<std::string, http_msg_line>;
-
+        http_msg_line response_line_;
         http_headers headers_;
         http_msg_body bodys_;
 
-        response_line get_first_parser();
+        response_line get_first_parser() { return {}; }
     };
 
     class endpoint_cache;
@@ -60,13 +52,14 @@ namespace hcpp
         virtual awaitable<void> wait() override;
 
         virtual awaitable<std::string_view> async_load_some(std::size_t max_n) override;
-        virtual awaitable<std::size_t> async_write_some(const std::string &) override;
+        virtual awaitable<std::size_t> async_write_some(std::string_view) override;
 
         virtual awaitable<std::string_view> async_load_until(const std::string &) override;
-        virtual awaitable<void> async_write_all(const std::string &) override;
+        virtual awaitable<void> async_write_all(std::string_view) override;
         virtual std::string_view get_some() override;
         virtual void remove_some(std::size_t index) override;
-        virtual bool eof() override;
+        virtual bool ok() override;
+        virtual void reset() override;
 
     private:
         std::shared_ptr<memory> m_;
@@ -79,9 +72,11 @@ namespace hcpp
     {
 
     public:
-        http_server(std::shared_ptr<endpoint_cache> cache,std::shared_ptr<slow_dns> dns);
+        http_server(std::shared_ptr<endpoint_cache> cache, std::shared_ptr<slow_dns> dns);
 
-        awaitable<service_worker> wait(std::string svc_host, std::string svc_service);
+        awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service);
+
+        awaitable<tcp_socket> get_socket(std::string svc_host, std::string svc_service);
 
     private:
         std::shared_ptr<slow_dns> slow_dns_;
@@ -95,10 +90,10 @@ namespace hcpp
 
     public:
         awaitable<std::shared_ptr<memory>> get_endpoint(std::string host, std::string service, std::shared_ptr<slow_dns> dns);
-        void return_back(std::string host,std::string service, std::shared_ptr<memory> m);
-        bool remove_endpoint(const std::string &svc);
+        void return_back(std::string host, std::string service, std::shared_ptr<memory> m);
+        bool remove_endpoint(std::string host, std::string service);
 
-    // private:
+        // private:
         endpoint_cache();
 
     private:

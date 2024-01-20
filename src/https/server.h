@@ -1,5 +1,5 @@
-#ifndef HTTPS_SERVER_H
-#define HTTPS_SERVER_H
+#ifndef SRC_HTTPS_SERVER
+#define SRC_HTTPS_SERVER
 
 #include "asio_coroutine_net.h"
 #include "dns.h"
@@ -34,4 +34,4 @@ namespace hcpp
     awaitable<void> https_listen(std::shared_ptr<socket_channel> src);
 } // namespace hcpp
 
-#endif
+#endif /* SRC_HTTPS_SERVER */

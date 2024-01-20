@@ -1,5 +1,5 @@
-#ifndef TUNNEL_H
-#define TUNNEL_H
+#ifndef HTTP_TUNNEL
+#define HTTP_TUNNEL
 #include <asio/ip/tcp.hpp>
 #include <asio/use_awaitable.hpp>
 #include <asio/experimental/as_single.hpp>
@@ -31,10 +31,10 @@ struct tunnel_session
 };
 
 
-awaitable<void> send_session(tunnel_session ts);
+awaitable<void> bind_write(tunnel_session ts);
 
-awaitable<void> receive_session(tunnel_session ts);
+awaitable<void> bind_read(tunnel_session ts);
 
 awaitable<void> double_session(tunnel_session ts);
 
-#endif
+#endif /* SRC_HTTP_TUNNEL */

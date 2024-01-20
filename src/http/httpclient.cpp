@@ -30,7 +30,7 @@ namespace hcpp
             {
                 goto L;
             }
-            h.method_str_=svl.substr(0, method_end);
+            h.method_str_ = svl.substr(0, method_end);
             h.method_ = get_method(h.method_str_);
             svl.remove_prefix(method_end + 1);
 
@@ -90,12 +90,16 @@ namespace hcpp
             if (h.method_ != http_request::CONNECT)
             {
                 h.url_ = svl.substr(0, url_end);
+                if (h.url_.empty())
+                {
+                    h.url_ = "/";
+                }
             }
             assert(url_end + 1 <= svl.size());
             svl.remove_prefix(url_end + 1);
 
             // 检查http协议版本
-            h.version_=svl.substr(0, svl.size()-2);
+            h.version_ = svl.substr(0, svl.size() - 2);
             if (!svl.starts_with("HTTP/"))
             {
                 // error = "HTTP/1.1 405 Method Not Allowed";
@@ -120,7 +124,7 @@ namespace hcpp
             assert(svl.size() == 0);
         }
         m->remove_some(rm);
-        co_return std::make_optional<request_headers>();
+        co_return std::make_optional<request_headers>({msg.size()-rm-2});
     L:
         co_return std::nullopt;
     }
@@ -128,14 +132,11 @@ namespace hcpp
     awaitable<std::optional<msg_body>> hcpp::request_headers::parser_headers(std::shared_ptr<memory> m, http_request &h)
     {
         auto sv = m->get_some();
-        auto rm = sv.size();
-        if (sv.starts_with("\r\n"))
-        {
-            co_return std::make_optional<msg_body>();
-        }
+        sv=sv.substr(0, header_end_);
 
         if (parser_header(sv, h.headers_))
         {
+            m->remove_some(header_end_+2);
             co_return std::make_optional<msg_body>();
         }
         co_return std::nullopt;
@@ -153,6 +154,11 @@ namespace hcpp
 
     http_client::http_client(tcp_socket &&sock) : mem_(std::make_shared<socket_memory>(std::move(sock)))
     {
+    }
+
+    tcp_socket http_client::get_socket()
+    {
+        return mem_->get_socket();
     }
 
 } // namespace hcpp

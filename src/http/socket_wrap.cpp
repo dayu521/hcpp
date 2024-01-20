@@ -20,27 +20,47 @@ namespace hcpp
 
     awaitable<std::string_view> hcpp::socket_memory::async_load_some(std::size_t max_n)
     {
-        if (eof())
+        std::size_t begin = write_index_;
+        std::string r{};
+        r.resize(max_n);
+        r.reserve(max_n);
+        std::size_t n = 0;
+
+        try
         {
+            n = co_await sock_->async_read_some(buffer(r, max_n));
+        }
+        catch (const std::exception &e)
+        {
+            read_ok_ = false;
+            throw e;
+        }
+
+        if (n == 0)
+        {
+            read_ok_ = false;
             co_return "";
         }
-        std::size_t begin = 0;
-        if (auto it_max = buffs_.cbegin(); it_max != buffs_.cend())
-        {
-            begin = it_max->begin_ + it_max->data_.size();
-        }
-        std::string r{};
-        r.reserve(max_n);
-        auto n = co_await sock_->async_read_some(buffer(r, max_n));
-        auto [i,b]=buffs_.emplace(begin, r.substr(0, n));
+        write_index_ += n;
+        auto [i, b] = buffs_.emplace(begin, r.substr(0, n));
         assert(b);
         co_return i->data_;
     }
 
-    awaitable<std::size_t> hcpp::socket_memory::async_write_some(const std::string &s)
+    awaitable<std::size_t> hcpp::socket_memory::async_write_some(std::string_view s)
     {
-        // HACK 不需要放到缓存
-        auto n = co_await sock_->async_write_some(buffer(s));
+        std::size_t n = 0;
+        try
+        {
+            // HACK 不需要放到缓存
+            n = co_await sock_->async_write_some(buffer(s));
+        }
+        catch (const std::exception &e)
+        {
+            write_ok_ = false;
+            throw e;
+        }
+
         co_return n;
     }
 
@@ -51,59 +71,78 @@ namespace hcpp
         {
             throw std::runtime_error("too long delimiter");
         }
-        if (eof())
-        {
-            co_return "";
-        }
-        std::size_t begin = 0;
-        if (auto it_max = buffs_.cbegin(); it_max != buffs_.cend())
-        {
-            begin = it_max->begin_ + it_max->data_.size();
-        }
+
+        std::size_t begin = write_index_;
 
         std::string r{};
         streambuf buff;
 
-        auto n = co_await asio::async_read_until(*sock_, buff, d);
+        std::size_t n = 0;
+        try
+        {
+            n = co_await asio::async_read_until(*sock_, buff, d);
+        }
+        catch (const std::exception &e)
+        {
+            read_ok_ = false;
+            throw e;
+        }
+        if (n == 0)
+        {
+            read_ok_ = false;
+            co_return "";
+        }
         r.resize(buff.size());
         r.reserve(buff.size());
         buffer_copy(buffer(r), buff.data(), buff.size());
         buff.consume(buff.size());
-        auto [i,b]=buffs_.insert({begin, std::move(r)});
+        write_index_ += r.size();
+        auto [i, b] = buffs_.insert({begin, std::move(r)});
         assert(b);
-        co_return i->data_;
+        co_return std::string_view{i->data_.data(), n};
     }
 
-    awaitable<void> hcpp::socket_memory::async_write_all(const std::string &s)
+    awaitable<void> hcpp::socket_memory::async_write_all(std::string_view s)
     {
-        co_await async_write(*sock_, buffer(s, s.size()));
+        try
+        {
+            co_await async_write(*sock_, buffer(s, s.size()));
+        }
+        catch (const std::exception &e)
+        {
+            write_ok_ = false;
+            throw e;
+        }
     }
 
     std::string_view socket_memory::get_some()
     {
-        auto i=buffs_.find(index_);
-        if(i==buffs_.end()){
+        auto i = buffs_.find(read_index_);
+        if (i == buffs_.end())
+        {
             return "";
         }
-        assert(index_>=i->begin_);
-        return std::string_view(i->data_.begin()+(index_-i->begin_),i->data_.end());
+        assert(read_index_ >= i->begin_);
+        return std::string_view(i->data_.begin() + (read_index_ - i->begin_), i->data_.end());
     }
 
-    void socket_memory::remove_some(std::size_t index)
+    void socket_memory::remove_some(std::size_t n)
     {
-        index_+=index;
-        for(auto && i : buffs_){
-            if(i.begin_+i.data_.size()<index_){
-                buffs_.erase(i);
-            }else{
+        read_index_ += n;
+        for (auto i = buffs_.begin(); i != buffs_.end();)
+        {
+            if (read_index_ < i->begin_ + i->data_.size())
+            {
                 break;
             }
+            auto old = i;
+            i++;
+            buffs_.erase(old);
         }
-        
     }
 
-    bool hcpp::socket_memory::eof()
+    bool hcpp::socket_memory::ok()
     {
-        return buffs_.size() == 0 && !sock_->is_open();
+        return read_ok_ && write_ok_;
     }
 } // namespace hcpp

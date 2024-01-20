@@ -1,5 +1,6 @@
 #include "httpserver.h"
 #include "socket_wrap.h"
+#include "parser.h"
 
 #include <mutex>
 #include <queue>
@@ -20,11 +21,31 @@ namespace hcpp
     {
     }
 
-    awaitable<service_worker> http_server::wait(std::string svc_host, std::string svc_service)
+    awaitable<std::shared_ptr<memory>> http_server::wait(std::string svc_host, std::string svc_service)
     {
         auto svc_endpoint = co_await endpoint_cache_->get_endpoint(svc_host, svc_service, slow_dns_);
 
-        co_return service_worker(svc_endpoint, svc_host, svc_service, endpoint_cache_);
+        co_return std::make_shared<service_worker>(svc_endpoint, svc_host, svc_service, endpoint_cache_);
+    }
+
+    awaitable<tcp_socket> http_server::get_socket(std::string svc_host, std::string svc_service)
+    {
+
+        auto rrs = slow_dns_->resolve_cache({svc_host, svc_service});
+        if (!rrs)
+        {
+            rrs.emplace(co_await slow_dns_->resolve({svc_host, svc_service}));
+        }
+
+        auto e = co_await this_coro::executor;
+        tcp_socket sock(e);
+        if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
+        {
+            spdlog::info("连接远程出错 -> {}:{}", svc_host, svc_service);
+            hcpp::slow_dns::get_slow_dns()->remove_svc({svc_host, svc_service}, remote_endpoint.address().to_string());
+        }
+
+        co_return std::move(sock);
     }
 
     using asio::experimental::concurrent_channel;
@@ -43,7 +64,7 @@ namespace hcpp
 
         awaitable<void> get_endpoint(const std::string &host, const std::string &service, std::shared_ptr<hcpp::slow_dns> dns, std::shared_ptr<channel> c);
         void return_back(const std::string &host, const std::string &service, std::shared_ptr<memory> m);
-        bool remove_endpoint(const std::string &svc);
+        bool remove_endpoint(std::string host, std::string service);
     };
 
     awaitable<void> endpoint_cache::imp::get_endpoint(const std::string &host, const std::string &service, std::shared_ptr<hcpp::slow_dns> dns, std::shared_ptr<channel> c)
@@ -55,8 +76,14 @@ namespace hcpp
             ib = cache_.find(svc);
         }
         std::shared_ptr<memory> m;
-        if (ib == cache_.end())
+        if (ib == cache_.end() || !ib->second->ok())
         {
+            if (ib != cache_.end())
+            {
+                spdlog::info("remove endpoint {}", svc);
+                std::unique_lock<std::shared_mutex> lock(shm_c_);
+                cache_.erase(ib);
+            }
             auto rrs = dns->resolve_cache({host, service});
             if (!rrs)
             {
@@ -67,11 +94,10 @@ namespace hcpp
             tcp_socket sock(e);
             if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
             {
-                // 如果重试,则客户端可能超时,即使解析成功,socket已经被关闭了
                 spdlog::info("连接远程出错 -> {}", svc);
                 hcpp::slow_dns::get_slow_dns()->remove_svc({host, service}, remote_endpoint.address().to_string());
                 c->close();
-                co_return;
+                // FIXME 失败也加入,它会由于写入失败而清除.但这并不好
             }
             auto v = std::make_shared<socket_memory>(std::move(sock));
             {
@@ -112,6 +138,7 @@ namespace hcpp
     void endpoint_cache::imp::return_back(const std::string &host, const std::string &service, std::shared_ptr<memory> m)
     {
         {
+            m->reset();
             auto svc = host + ":" + service;
             std::unique_lock<std::shared_mutex> lock(shm_rq_);
             auto ib = request_queue_.find(svc);
@@ -133,13 +160,13 @@ namespace hcpp
                     spdlog::error("发送下一个等待者失败,移除此等待者: {}", svc);
                 }
             }
-            spdlog::warn("当前没有等待者");
             request_queue_.erase(ib);
         }
     }
 
-    bool endpoint_cache::imp::remove_endpoint(const std::string &svc)
+    bool endpoint_cache::imp::remove_endpoint(std::string host, std::string service)
     {
+        auto svc = host + ":" + service;
         {
             std::unique_lock<std::shared_mutex> lock(shm_c_);
             if (auto ib = cache_.find(svc); ib != cache_.end())
@@ -170,9 +197,9 @@ namespace hcpp
         imp_->return_back(host, service, m);
     }
 
-    bool endpoint_cache::remove_endpoint(const std::string &svc)
+    bool endpoint_cache::remove_endpoint(std::string host, std::string service)
     {
-        return imp_->remove_endpoint(svc);
+        return imp_->remove_endpoint(host, service);
     }
 
     endpoint_cache::endpoint_cache() : imp_(std::make_shared<imp>())
@@ -198,7 +225,7 @@ namespace hcpp
         co_return co_await m_->async_load_some(max_n);
     }
 
-    awaitable<std::size_t> service_worker::async_write_some(const std::string &data)
+    awaitable<std::size_t> service_worker::async_write_some(std::string_view data)
     {
         co_return co_await m_->async_write_some(data);
     }
@@ -208,7 +235,7 @@ namespace hcpp
         co_return co_await m_->async_load_until(data);
     }
 
-    awaitable<void> service_worker::async_write_all(const std::string &data)
+    awaitable<void> service_worker::async_write_all(std::string_view data)
     {
         co_return co_await m_->async_write_all(data);
     }
@@ -223,9 +250,42 @@ namespace hcpp
         m_->remove_some(index);
     }
 
-    bool service_worker::eof()
+    bool service_worker::ok()
     {
-        return m_->eof();
+        return m_->ok();
+    }
+
+    void service_worker::reset()
+    {
+        // 没有此操作
+        spdlog::error("unsupport");
+    }
+
+    awaitable<std::optional<msg_body>> response_headers::parser_headers(std::shared_ptr<memory> m, http_response &r)
+    {
+        auto sv = m->get_some();
+        sv = sv.substr(0, header_end_);
+
+        if (parser_header(sv, r.headers_))
+        {
+            m->remove_some(header_end_ + 2);
+            co_return std::make_optional<msg_body>();
+        }
+
+        co_return std::nullopt;
+    }
+
+    awaitable<std::optional<response_headers>> response_line::parser_response_line(std::shared_ptr<memory> m, http_response &r)
+    {
+        auto msg = co_await m->async_load_until("\r\n\r\n");
+        r.response_line_ = msg.substr(0, msg.find("\r\n") + 2);
+        m->remove_some(r.response_line_.size());
+        co_return std::make_optional<response_headers>({msg.size() - r.response_line_.size() - 2});
+    }
+
+    awaitable<bool> msg_body::parser_msg_body(std::shared_ptr<memory> m, http_response &)
+    {
+        co_return false;
     }
 
 } // namespace hcpp

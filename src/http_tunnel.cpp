@@ -8,7 +8,7 @@
 
 #include <string>
 
-awaitable<void> send_session(tunnel_session ts)
+awaitable<void> bind_write(tunnel_session ts)
 {
     auto &[client, server, ser_info] = ts;
 
@@ -50,7 +50,7 @@ awaitable<void> send_session(tunnel_session ts)
     spdlog::debug("写 {} 关闭 -> {}kb", ser_info,total_n / 1024);
 }
 
-awaitable<void> receive_session(tunnel_session ts)
+awaitable<void> bind_read(tunnel_session ts)
 {
     auto &[client, server, ser_info] = ts;
 

@@ -3,21 +3,15 @@
 #include "memory.h"
 #include "parser.h"
 #include "socket_wrap.h"
+#include "http.h"
 
 #include <optional>
 
 namespace hcpp
 {
-
-    struct http_request;
-
-    struct msg_body
-    {
-        awaitable<bool> parser_msg_body(std::shared_ptr<memory> m, http_request &);
-    };
-
     struct request_headers
     {
+        std::size_t header_end_;
         awaitable<std::optional<msg_body>> parser_headers(std::shared_ptr<memory> m, http_request &);
     };
 
@@ -33,10 +27,6 @@ namespace hcpp
             CONNECT,
             OTHER
         };
-
-        using http_msg_line = std::string;
-        using http_msg_body = std::vector<std::string>;
-        using http_headers = std::unordered_map<std::string, http_msg_line>;
 
         method method_;
         std::string version_;
@@ -58,8 +48,10 @@ namespace hcpp
 
         std::shared_ptr<memory> get_memory(){return mem_;}
 
+        tcp_socket get_socket();
+
     private:
-        std::shared_ptr<memory> mem_;
+        std::shared_ptr<socket_memory> mem_;
     };
 
 } // namespace hcpp
