@@ -2,7 +2,7 @@
 #define SRC_HTTP_HTTPSERVER
 #include "memory.h"
 #include "dns.h"
-#include "http.h"
+#include "httpbase.h"
 #include "socket_wrap.h"
 
 #include <optional>
@@ -15,19 +15,23 @@ namespace hcpp
     struct response_headers
     {
         std::size_t header_end_;
-        awaitable<std::optional<msg_body>> parser_headers(std::shared_ptr<memory> m, http_response &);
+        std::shared_ptr<memory> m_;
+        awaitable<std::optional<msg_body>> parser_headers( http_response &);
     };
 
     struct response_line
     {
-        awaitable<std::optional<response_headers>> parser_response_line(std::shared_ptr<memory> m, http_response &);
+        std::shared_ptr<memory> m_;
+        awaitable<std::optional<response_headers>> parser_response_line( http_response &);
     };
 
     struct http_response : http_msg
     {
         http_msg_line response_line_;
 
-        response_line get_first_parser() { return {}; }
+        std::string response_header_str_;
+
+        response_line get_first_parser(std::shared_ptr<memory> m) { return {m}; }
     };
 
     class endpoint_cache;

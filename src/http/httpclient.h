@@ -1,9 +1,8 @@
 #ifndef SRC_HTTP_HTTPCLIENT
 #define SRC_HTTP_HTTPCLIENT
 #include "memory.h"
-#include "parser.h"
 #include "socket_wrap.h"
-#include "http.h"
+#include "httpbase.h"
 
 #include <optional>
 
@@ -36,7 +35,6 @@ namespace hcpp
         std::string host_;
         std::string url_;
         std::string port_;
-        http_headers headers_;
 
         request_line get_first_parser(std::shared_ptr<memory> m);
     };

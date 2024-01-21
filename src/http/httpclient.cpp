@@ -1,5 +1,4 @@
 #include "httpclient.h"
-#include "parser.h"
 #include "socket_wrap.h"
 
 #include <regex>
@@ -17,7 +16,7 @@ namespace hcpp
         return http_request::method::OTHER;
     }
 
-    awaitable<std::optional<request_headers>> hcpp::request_line::parser_reuqest_line( http_request &h)
+    awaitable<std::optional<request_headers>> hcpp::request_line::parser_reuqest_line(http_request &h)
     {
         auto msg = co_await m_->async_load_until("\r\n\r\n");
         auto svl = msg.substr(0, msg.find("\r\n") + 2);
@@ -124,19 +123,24 @@ namespace hcpp
             assert(svl.size() == 0);
         }
         m_->remove_some(rm);
-        co_return std::make_optional<request_headers>({msg.size()-rm-2,m_});
+        co_return std::make_optional<request_headers>({msg.size() - rm - 2, m_});
     L:
         co_return std::nullopt;
     }
 
-    awaitable<std::optional<msg_body>> hcpp::request_headers::parser_headers( http_request &h)
+    awaitable<std::optional<msg_body>> hcpp::request_headers::parser_headers(http_request &h)
     {
         auto sv = m_->get_some();
-        sv=sv.substr(0, header_end_);
+        sv = sv.substr(0, header_end_);
 
         if (parser_header(sv, h.headers_))
         {
-            m_->remove_some(header_end_+2);
+            m_->remove_some(header_end_ + 2);
+            auto s = msg_body_size(h.headers_);
+            if (s)
+            {
+                h.body_size_ = *s;
+            }
             co_return std::make_optional<msg_body>();
         }
         co_return std::nullopt;

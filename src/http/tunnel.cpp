@@ -1,5 +1,4 @@
 #include "tunnel.h"
-#include "http_tunnel.h"
 
 #include <string>
 
@@ -10,6 +9,7 @@
 #include <asio/detached.hpp>
 #include <asio/write.hpp>
 #include <asio/connect.hpp>
+#include <asio/experimental/as_single.hpp>
 
 namespace hcpp
 {

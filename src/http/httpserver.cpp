@@ -1,6 +1,5 @@
 #include "httpserver.h"
 #include "socket_wrap.h"
-#include "parser.h"
 
 #include <mutex>
 #include <queue>
@@ -241,29 +240,34 @@ namespace hcpp
         spdlog::error("unsupport");
     }
 
-    awaitable<std::optional<msg_body>> response_headers::parser_headers(std::shared_ptr<memory> m, http_response &r)
+    awaitable<std::optional<msg_body>> response_headers::parser_headers( http_response &r)
     {
-        auto sv = m->get_some();
+        auto sv = m_->get_some();
+        r.response_header_str_=sv.substr(0,header_end_+2);
         sv = sv.substr(0, header_end_);
 
         if (parser_header(sv, r.headers_))
         {
-            m->remove_some(header_end_ + 2);
+            m_->remove_some(header_end_ + 2);
+            auto s=msg_body_size(r.headers_);
+            if(s){
+                r.body_size_=*s;
+            }
             co_return std::make_optional<msg_body>();
         }
 
         co_return std::nullopt;
     }
 
-    awaitable<std::optional<response_headers>> response_line::parser_response_line(std::shared_ptr<memory> m, http_response &r)
+    awaitable<std::optional<response_headers>> response_line::parser_response_line(http_response &r)
     {
-        auto msg = co_await m->async_load_until("\r\n\r\n");
+        auto msg = co_await m_->async_load_until("\r\n\r\n");
         r.response_line_ = msg.substr(0, msg.find("\r\n") + 2);
-        m->remove_some(r.response_line_.size());
-        co_return std::make_optional<response_headers>({msg.size() - r.response_line_.size() - 2});
+        m_->remove_some(r.response_line_.size());
+        co_return std::make_optional<response_headers>({msg.size() - r.response_line_.size() - 2,m_});
     }
 
-    awaitable<bool> msg_body::parser_msg_body(std::shared_ptr<memory> m, http_response &)
+    awaitable<bool> msg_body::parser_msg_body(http_response &)
     {
         co_return false;
     }
