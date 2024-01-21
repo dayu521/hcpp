@@ -28,26 +28,6 @@ namespace hcpp
         co_return std::make_shared<service_worker>(svc_endpoint, svc_host, svc_service, endpoint_cache_);
     }
 
-    awaitable<tcp_socket> http_server::get_socket(std::string svc_host, std::string svc_service)
-    {
-
-        auto rrs = slow_dns_->resolve_cache({svc_host, svc_service});
-        if (!rrs)
-        {
-            rrs.emplace(co_await slow_dns_->resolve({svc_host, svc_service}));
-        }
-
-        auto e = co_await this_coro::executor;
-        tcp_socket sock(e);
-        if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
-        {
-            spdlog::info("连接远程出错 -> {}:{}", svc_host, svc_service);
-            hcpp::slow_dns::get_slow_dns()->remove_svc({svc_host, svc_service}, remote_endpoint.address().to_string());
-        }
-
-        co_return std::move(sock);
-    }
-
     using asio::experimental::concurrent_channel;
     using channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<memory>)>>;
     using asio::co_spawn;

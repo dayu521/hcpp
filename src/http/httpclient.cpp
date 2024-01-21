@@ -17,9 +17,9 @@ namespace hcpp
         return http_request::method::OTHER;
     }
 
-    awaitable<std::optional<request_headers>> hcpp::request_line::parser_reuqest_line(std::shared_ptr<memory> m, http_request &h)
+    awaitable<std::optional<request_headers>> hcpp::request_line::parser_reuqest_line( http_request &h)
     {
-        auto msg = co_await m->async_load_until("\r\n\r\n");
+        auto msg = co_await m_->async_load_until("\r\n\r\n");
         auto svl = msg.substr(0, msg.find("\r\n") + 2);
         auto rm = svl.size();
 
@@ -123,42 +123,37 @@ namespace hcpp
             svl.remove_prefix(http_ver_end + 2);
             assert(svl.size() == 0);
         }
-        m->remove_some(rm);
-        co_return std::make_optional<request_headers>({msg.size()-rm-2});
+        m_->remove_some(rm);
+        co_return std::make_optional<request_headers>({msg.size()-rm-2,m_});
     L:
         co_return std::nullopt;
     }
 
-    awaitable<std::optional<msg_body>> hcpp::request_headers::parser_headers(std::shared_ptr<memory> m, http_request &h)
+    awaitable<std::optional<msg_body>> hcpp::request_headers::parser_headers( http_request &h)
     {
-        auto sv = m->get_some();
+        auto sv = m_->get_some();
         sv=sv.substr(0, header_end_);
 
         if (parser_header(sv, h.headers_))
         {
-            m->remove_some(header_end_+2);
+            m_->remove_some(header_end_+2);
             co_return std::make_optional<msg_body>();
         }
         co_return std::nullopt;
     }
 
-    awaitable<bool> hcpp::msg_body::parser_msg_body(std::shared_ptr<memory> m, http_request &h)
+    awaitable<bool> hcpp::msg_body::parser_msg_body(http_request &h)
     {
         co_return false;
     }
 
-    request_line hcpp::http_request::get_first_parser()
+    request_line hcpp::http_request::get_first_parser(std::shared_ptr<memory> m)
     {
-        return {};
+        return {m};
     }
 
     http_client::http_client(tcp_socket &&sock) : mem_(std::make_shared<socket_memory>(std::move(sock)))
     {
-    }
-
-    tcp_socket http_client::get_socket()
-    {
-        return mem_->get_socket();
     }
 
 } // namespace hcpp

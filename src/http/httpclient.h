@@ -12,15 +12,17 @@ namespace hcpp
     struct request_headers
     {
         std::size_t header_end_;
-        awaitable<std::optional<msg_body>> parser_headers(std::shared_ptr<memory> m, http_request &);
+        std::shared_ptr<memory> m_;
+        awaitable<std::optional<msg_body>> parser_headers(http_request &);
     };
 
     struct request_line
     {
-        awaitable<std::optional<request_headers>> parser_reuqest_line(std::shared_ptr<memory> m, http_request &);
+        std::shared_ptr<memory> m_;
+        awaitable<std::optional<request_headers>> parser_reuqest_line( http_request &);
     };
 
-    struct http_request
+    struct http_request : http_msg
     {
         enum method
         {
@@ -35,9 +37,8 @@ namespace hcpp
         std::string url_;
         std::string port_;
         http_headers headers_;
-        http_msg_body bodys_;
 
-        request_line get_first_parser();
+        request_line get_first_parser(std::shared_ptr<memory> m);
     };
 
     class http_client
@@ -47,8 +48,6 @@ namespace hcpp
         http_client(tcp_socket &&sock);
 
         std::shared_ptr<memory> get_memory(){return mem_;}
-
-        tcp_socket get_socket();
 
     private:
         std::shared_ptr<socket_memory> mem_;

@@ -26,7 +26,7 @@ namespace hcpp
         virtual std::string_view get_some() override;
         virtual void remove_some(std::size_t) override;
         virtual bool ok() override;
-        virtual void reset() override { read_index_ = write_index_ = 0; assert(buffs_.empty());}
+        virtual void reset() override { read_index_ = write_index_ = 0; /*assert(buffs_.empty());*/}
 
         struct mem_block
         {

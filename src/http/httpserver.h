@@ -23,11 +23,9 @@ namespace hcpp
         awaitable<std::optional<response_headers>> parser_response_line(std::shared_ptr<memory> m, http_response &);
     };
 
-    struct http_response
+    struct http_response : http_msg
     {
         http_msg_line response_line_;
-        http_headers headers_;
-        http_msg_body bodys_;
 
         response_line get_first_parser() { return {}; }
     };
@@ -75,8 +73,6 @@ namespace hcpp
         http_server(std::shared_ptr<endpoint_cache> cache, std::shared_ptr<slow_dns> dns);
 
         awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service);
-
-        awaitable<tcp_socket> get_socket(std::string svc_host, std::string svc_service);
 
     private:
         std::shared_ptr<slow_dns> slow_dns_;

@@ -3,25 +3,47 @@
 
 #include "httpclient.h"
 #include "httpserver.h"
+#include "memory.h"
+#include "dns.h"
 
 #include <memory>
 
-#include <asio/ip/tcp.hpp>
 #include <asio/use_awaitable.hpp>
 
 namespace hcpp
 {
-    using namespace asio;
+    class http_tunnel
+    {
+    public:
+        http_tunnel(std::shared_ptr<memory> m, std::string host, std::string service);
+        ~http_tunnel();
 
-    using ip::tcp;
-    using default_token = use_awaitable_t<>;
-    using tcp_acceptor = default_token::as_default_on_t<tcp::acceptor>;
-    using tcp_socket = default_token::as_default_on_t<tcp::socket>;
+        awaitable<bool> wait(std::shared_ptr<slow_dns> dns);
+
+        awaitable<void> read();
+        awaitable<void> write();
+
+        bool ok(){return read_ok_&&write_ok_;}
+
+    public:
+        static awaitable<void> bind_read(std::shared_ptr<http_tunnel> self);
+        static awaitable<void> bind_write(std::shared_ptr<http_tunnel> self);
+        static awaitable<void> make_tunnel(std::shared_ptr<memory> m, std::string host, std::string service,std::shared_ptr<slow_dns> dns);
+
+    private:
 
 
-    awaitable<void> make_bind(http_client client, http_server server,std::string host, std::string service );
-    awaitable<void> bind_write2(std::shared_ptr<memory> client, std::shared_ptr<memory> server, std::string server_info);
-    awaitable<void> bind_read2(std::shared_ptr<memory> client, std::shared_ptr<memory> server, std::string server_info);
+    private:
+        std::shared_ptr<memory> c_;
+        std::unique_ptr<memory> s_;
+        std::string host_;
+        std::string service_;
+        std::size_t r_n_ = 0;
+        std::size_t w_n_ = 0;
+
+        bool read_ok_=true;
+        bool write_ok_=true;
+    };
 
 } // namespace hcpp
 

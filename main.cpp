@@ -25,8 +25,6 @@
 
 #include "proxy.h"
 #include "dns.h"
-#include "https/server.h"
-#include "http/httpclient.h"
 
 using asio::awaitable;
 using asio::co_spawn;
@@ -51,7 +49,6 @@ awaitable<void> listener()
     for (;;)
     {
         auto socket = co_await acceptor.async_accept();
-        // co_spawn(executor, read_http_input(std::move(socket), hcpp::slow_dns::get_slow_dns(),cc), detached);
         co_spawn(executor, http_proxy(hcpp::http_client(std::move(socket)),cc), detached);
     }
 }
@@ -62,7 +59,9 @@ int main(int argc, char **argv)
     {
         spdlog::set_level(spdlog::level::debug);
         spdlog::cfg::load_env_levels();
-        spdlog::set_pattern("*** [%H:%M:%S %z] [thread %t] %v ***");
+        // spdlog::set_pattern("*** [%H:%M:%S %z] [thread %t] %v ***");
+        // spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%t] [%l] %v");
+        spdlog::set_pattern("\033[1;37m[%Y-%m-%d %H:%M:%S.%e] [%t] [%^%l%$]\033[0m %v");
         spdlog::debug("hcpp launch");
 
         asio::io_context io_context;
@@ -106,7 +105,7 @@ int main(int argc, char **argv)
                 self(self, i);
             }
         };
-        // create_thread(create_thread, 3);
+        create_thread(create_thread, 3);
 
         co_spawn(io_context, listener(), [&io_context](std::exception_ptr eptr)
                  {
