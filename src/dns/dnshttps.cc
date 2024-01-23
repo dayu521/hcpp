@@ -31,10 +31,11 @@
 #include "dnshttps.h"
 #include "net-headers.h"
 
-#include <arpa/inet.h>
+// #include <arpa/inet.h>
 
 #include <asio.hpp>
 
+/// @brief
 namespace harddns
 {
 
@@ -330,14 +331,14 @@ namespace harddns
 
 	namespace
 	{
-		// inline uint16_t htons(uint16_t hostshort)
-		// {
-		// 	if constexpr (std::endian::native == std::endian::little)
-		// 	{
-		// 		return (hostshort << 8)|( hostshort >> 8);
-		// 	}
-		// 	return hostshort;
-		// }
+		inline uint16_t htons(uint16_t hostshort)
+		{
+			if constexpr (std::endian::native == std::endian::little)
+			{
+				return ((hostshort & 0xFF) << 8) | ((hostshort >> 8) & 0xFF);
+			}
+			return hostshort;
+		}
 	}
 
 	// construct a DNS query for rfc8484
@@ -412,7 +413,7 @@ namespace harddns
 				co_return -1;
 		}
 
-		req += " HTTP/1.1\r\nHost: dns.alidns.com";
+		req += " HTTP/1.1\r\nHost: " + dns_host_;
 		req += "\r\nUser-Agent: harddns 0.58 github.com/stealth/harddns\r\nConnection: Keep-Alive\r\n";
 
 		if (true)
@@ -437,49 +438,51 @@ namespace harddns
 
 		asio::streambuf bufff;
 
-		co_await async_read_until(socket_, bufff, "\r\n\r\n");
+		auto fr = co_await async_read_until(socket_, bufff, "\r\n\r\n");
 
 		tmp.resize(bufff.size());
 		buffer_copy(buffer(tmp), bufff.data());
 		bufff.consume(bufff.size());
 		reply += tmp;
-		for (int j = 0; j < maxtries; ++j)
+		if (reply.find("Transfer-Encoding: chunked\r\n") != string::npos && reply.find("\r\n0\r\n\r\n") != string::npos)
 		{
+			has_answer = 1;
+		}
 
-			if (reply.find("Transfer-Encoding: chunked\r\n") != string::npos && reply.find("\r\n0\r\n\r\n") != string::npos)
+		// 找到消息体大小
+		if (cl == 0 && (idx = reply.find("Content-Length:")) != string::npos)
+		{
+			idx += 15;
+			cl = strtoul(reply.c_str() + idx, nullptr, 10);
+			if (cl > 65535)
+			{
+				has_answer = 0;
+			}
+			else
 			{
 				has_answer = 1;
-				break;
 			}
+		}
 
-			if (cl == 0 && (idx = reply.find("Content-Length:")) != string::npos)
-			{
-				idx += 15;
-				if (idx >= reply.size())
-					continue;
+		if (!has_answer)
+		{
+			co_return -1;
+		}
+		auto tocl = cl - (reply.size() - fr);
+		content_idx = fr;
+		auto cli = 0;
+		while (cli < tocl)
+		{
+			std::string bf2;
+			bf2.resize(2048);
+			auto bf2n = co_await socket_.async_read_some(buffer(bf2));
+			reply += bf2.substr(0, bf2n);
+			cli += bf2n;
+		}
 
-				cl = strtoul(reply.c_str() + idx, nullptr, 10);
-				if (cl > 65535)
-				{
-					break;
-				}
-			}
-
-			if (cl > 0 && (content_idx = reply.find("\r\n\r\n")) != string::npos)
-			{
-				content_idx += 4;
-				if (content_idx <= reply.size() && reply.size() - content_idx < cl)
-				{
-					std::string bf2;
-					bf2.resize(2048);
-					auto bf2n = co_await socket_.async_read_some(buffer(bf2));
-					reply += bf2.substr(0, bf2n);
-					continue;
-				}
-
-				has_answer = 1;
-				break;
-			}
+		if (reply.size() - fr == cl)
+		{
+			std::cout << "读取数量正确" << std::endl;
 		}
 
 		std::cout << reply << std::endl;
@@ -490,6 +493,9 @@ namespace harddns
 		// {
 		// 	int r = 0;
 		// 	// if (true)
+		for (auto &&i : reply.substr(fr))
+			std::cout << (((unsigned int)i) & 255) << " ";
+		std::cout << std::endl;
 		auto r = parse_rfc8484(name, qtype, result, raw, reply, content_idx, cl);
 		// 	// else
 		// 	// 	r = parse_json(name, qtype, result, raw, reply, content_idx, cl);
@@ -498,12 +504,13 @@ namespace harddns
 		// 		co_return r;
 		// 	continue;
 		// }
+		std::cout << "------" << std::endl;
 		for (auto &&i : result)
 		{
 			auto [name, qtype, qclass, ttl, rdata] = i.second;
 			std::cout << name << " ";
-			std::cout << qtype << " ";
-			std::cout << qclass << " ";
+			// std::cout << qtype << " ";
+			// std::cout << qclass << " ";
 			std::cout << ttl << " ";
 			std::cout << rdata << " " << std::endl;
 		}
@@ -511,6 +518,15 @@ namespace harddns
 		co_return 0;
 	}
 
+	/// @brief
+	/// @param name 	查询名字
+	/// @param type
+	/// @param result 	解析的结果放到这里
+	/// @param raw 		原始消息也放到这里,暂时对于rfc8484没有使用
+	/// @param reply 	消息
+	/// @param content_idx 消息开始索引
+	/// @param cl 	消息大小
+	/// @return
 	int dnshttps::parse_rfc8484(const string &name, uint16_t type, dns_reply &result, string &raw, const string &reply, string::size_type content_idx, size_t cl)
 	{
 		string dns_reply = "", tmp = "";
@@ -559,21 +575,27 @@ namespace harddns
 
 		const dnshdr *dhdr = reinterpret_cast<const dnshdr *>(dns_reply.c_str());
 
+		// 表示响应
 		if (dhdr->qr != 1)
 			return -1;
-
+		// 没有错误
 		if (dhdr->rcode != 0)
 			return -1;
 
 		string aname = "", cname = "", fqdn = "";
+		// 跳过head部分
 		idx = sizeof(dnshdr);
+		// 提取qname放到tmp
 		int qnlen = qname2host(dns_reply, tmp, idx);
+		// 测试问题部分
 		if (qnlen <= 0 || idx + qnlen + 2 * sizeof(uint16_t) >= dns_reply.size())
 			return -1;
+		// 解析的qname
 		fqdn = lcs(tmp);
 		if (lcs(string(name + ".")) != fqdn)
 			return -1;
 
+		// 跳过问题部分
 		idx += qnlen + 2 * sizeof(uint16_t);
 		aidx = idx;
 
@@ -583,50 +605,52 @@ namespace harddns
 		// first of all, find all CNAMEs for desired name
 		map<string, int> fqdns{{fqdn, 1}};
 
-		if(false){
-		for (int i = 0;; ++i)
+		if (false)
 		{
-			if (idx >= dns_reply.size())
-				break;
-
-			// also handles compressed labels
-			// if ((qnlen = qname2host(dns_reply, tmp, idx)) <= 0)
-			// 	return -1;
-			aname = lcs(tmp);
-
-			// 10 -> qtype, qclass, ttl, rdlen
-			if (idx + qnlen + 10 >= dns_reply.size())
-				return -1;
-			idx += qnlen;
-			qtype = *reinterpret_cast<const uint16_t *>(dns_reply.c_str() + idx);
-			idx += sizeof(uint16_t);
-			qclass = *reinterpret_cast<const uint16_t *>(dns_reply.c_str() + idx);
-			idx += sizeof(uint16_t);
-			ttl = *reinterpret_cast<const uint32_t *>(dns_reply.c_str() + idx);
-			idx += sizeof(uint32_t);
-			rdlen = ntohs(*reinterpret_cast<const uint16_t *>(dns_reply.c_str() + idx));
-			idx += sizeof(uint16_t);
-
-			if (idx + rdlen > dns_reply.size() || qclass != htons(1) || rdlen == 0)
-				return -1;
-
-			if (qtype == htons(dns_type::CNAME))
+			// XXX 没有处理扩展部分 rfc6891
+			for (int i = 0;; ++i)
 			{
-				if (qname2host(dns_reply, tmp, idx) <= 0)
-					-1;
-				cname = lcs(tmp);
+				if (idx >= dns_reply.size())
+					break;
 
-				if (fqdns.count(aname) > 0)
+				// also handles compressed labels
+				if ((qnlen = qname2host(dns_reply, tmp, idx)) <= 0)
+					return -1;
+				aname = lcs(tmp);
+
+				// 10 -> qtype, qclass, ttl, rdlen
+				if (idx + qnlen + 10 >= dns_reply.size())
+					return -1;
+				idx += qnlen;
+				qtype = *reinterpret_cast<const uint16_t *>(dns_reply.c_str() + idx);
+				idx += sizeof(uint16_t);
+				qclass = *reinterpret_cast<const uint16_t *>(dns_reply.c_str() + idx);
+				idx += sizeof(uint16_t);
+				ttl = *reinterpret_cast<const uint32_t *>(dns_reply.c_str() + idx);
+				idx += sizeof(uint32_t);
+				rdlen = ntohs(*reinterpret_cast<const uint16_t *>(dns_reply.c_str() + idx));
+				idx += sizeof(uint16_t);
+
+				if (idx + rdlen > dns_reply.size() || qclass != htons(1) || rdlen == 0)
+					return -1;
+
+				if (qtype == htons(dns_type::CNAME))
 				{
-					fqdns[cname] = 1;
+					if (qname2host(dns_reply, tmp, idx) <= 0)
+						return -1;
+					cname = lcs(tmp);
 
-					// For NSS module, to have fqdn aliases w/o decoding avail
-					result[acnt++] = {"NSS CNAME", 0, 0, ntohl(ttl), cname};
+					if (fqdns.count(aname) > 0)
+					{
+						fqdns[cname] = 1;
+
+						// For NSS module, to have fqdn aliases w/o decoding avail
+						result[acnt++] = {"NSS CNAME", 0, 0, ntohl(ttl), cname};
+					}
 				}
-			}
 
-			idx += rdlen;
-		}
+				idx += rdlen;
+			}
 		}
 		idx = aidx;
 		for (int i = 0;; ++i)
@@ -636,7 +660,7 @@ namespace harddns
 
 			// unlike in CNAME parsing loop, do not convert answer to lowercase,
 			// as we want to put original name into answer
-			if ((qnlen = qname2host(dns_reply, aname, idx)) <= 0)
+			if ((qnlen = qname2host(dns_reply, aname, idx)) < 0)
 				return -1;
 
 			// 10 -> qtype, qclass, ttl, rdlen
@@ -647,7 +671,7 @@ namespace harddns
 			idx += sizeof(uint16_t);
 			qclass = *reinterpret_cast<const uint16_t *>(dns_reply.c_str() + idx);
 			idx += sizeof(uint16_t);
-			ttl = *reinterpret_cast<const uint32_t *>(dns_reply.c_str() + idx);
+			ttl = ntohl(*reinterpret_cast<const uint32_t *>(dns_reply.c_str() + idx));
 			idx += sizeof(uint32_t);
 			rdlen = ntohs(*reinterpret_cast<const uint16_t *>(dns_reply.c_str() + idx));
 			idx += sizeof(uint16_t);
@@ -660,14 +684,21 @@ namespace harddns
 			string qname = "";
 			if (host2qname(aname, qname) <= 0)
 				return -1;
-
-			answer_t dns_ans{qname, qtype, qclass, ttl};
+			string_view sanas = aname;
+			if (sanas.back() == '.')
+				sanas.remove_suffix(1);
+			answer_t dns_ans{std::string(sanas), qtype, qclass, ttl};
 
 			if (qtype == htons(dns_type::A) && fqdns.count(lcs(aname)) > 0)
 			{
 				if (rdlen != 4)
 					return -1;
-				dns_ans.rdata = dns_reply.substr(idx, 4);
+				auto s = (char8_t *)dns_reply.substr(idx, 4).data();
+				for (int i = 0; i < 4; i++)
+				{
+					dns_ans.rdata += std::to_string(s[i]) + ".";
+				}
+				dns_ans.rdata.pop_back();
 				result[acnt++] = dns_ans;
 				has_answer = 1;
 			}
@@ -675,7 +706,12 @@ namespace harddns
 			{
 				if (rdlen != 16)
 					return -1;
-				dns_ans.rdata = dns_reply.substr(idx, 16);
+				auto s = (uint16_t *)dns_reply.substr(idx, 16).data();
+				for (int i = 0; i < 8; i++)
+				{
+					dns_ans.rdata += std::to_string(s[i]) + ":";
+				}
+				// dns_ans.rdata = dns_reply.substr(idx, 16);
 				result[acnt++] = dns_ans;
 				has_answer = 1;
 			}

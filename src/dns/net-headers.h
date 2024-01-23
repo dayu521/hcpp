@@ -27,7 +27,6 @@
 #ifndef SRC_NET_HEADERS
 #define SRC_NET_HEADERS
 
-#include <sys/types.h>
 #include <stdint.h>
 
 #include <bit>
@@ -37,12 +36,26 @@ namespace harddns
 	template <auto endian>
 	struct endian_base;
 
+	// 数据传输顺序
+	// https://www.rfc-editor.org/rfc/rfc1035#section-2.3.2
+
 	// https://www.rfc-editor.org/rfc/rfc1035#section-4.1.1
-	
+
 	template <>
 	struct endian_base<std::endian::big>
 	{
 		uint16_t id;
+
+		// uint16_t rcode : 4; /* response code */
+		// uint16_t : 3;		/* checking disabled by resolver */
+		// uint16_t ra : 1;	/* recursion available */
+
+		// uint16_t rd : 1;	 /* recursion desired */
+		// uint16_t tc : 1;	 /* truncated message */
+		// uint16_t aa : 1;	 /* authoritive answer */
+		// uint16_t opcode : 4; /* purpose of message */
+		// uint16_t qr : 1;	 /* response flag */
+		// 下面对吗?我怎么感觉应该改成上述的
 		/* fields in third byte */
 		uint16_t qr : 1;	 /* response flag */
 		uint16_t opcode : 4; /* purpose of message */

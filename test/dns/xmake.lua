@@ -11,6 +11,7 @@ end
 
 target("dns_t")
     set_kind("binary")
+    set_languages("c++20")
     add_includedirs("../../src/dns/")
     add_includedirs("../../src/")
     add_files("./*.cpp","../../src/dns/*.cc")

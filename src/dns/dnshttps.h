@@ -57,13 +57,13 @@ namespace harddns
 		// we need it ordered
 		using dns_reply = std::map<unsigned int, answer_t>;
 
-	private:
-		int parse_rfc8484(const std::string &, uint16_t, dns_reply &, std::string &, const std::string &, std::string::size_type, size_t);
+	public:
+		static int parse_rfc8484(const std::string &, uint16_t, dns_reply &, std::string &, const std::string &, std::string::size_type, size_t);
 
 		int parse_json(const std::string &, uint16_t, dns_reply &, std::string &, const std::string &, std::string::size_type, size_t);
 
 	public:
-		dnshttps(ssl::stream<tcp_socket> socket):socket_(std::move(socket))
+		dnshttps(ssl::stream<tcp_socket> socket,std::string dns_host):socket_(std::move(socket)),dns_host_(dns_host)
 		{
 		}
 
@@ -76,9 +76,8 @@ namespace harddns
 
 	private:
 		ssl::stream<tcp_socket> socket_;
+		std::string dns_host_;
 	};
-
-	extern dnshttps *dns;
 
 }
 
