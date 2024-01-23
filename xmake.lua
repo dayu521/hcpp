@@ -2,6 +2,8 @@ add_rules("mode.debug", "mode.release")
 
 set_languages("c++20")
 
+-- 设置代理镜像
+-- xmake g --proxy_pac=github_mirror.lua
 -- https://gitee.com/californiacat/lsf.git
 includes("lib/lsf")
 add_requires("asio")
@@ -10,7 +12,7 @@ add_requires("spdlog")
 
 target("hcpp")
     set_kind("binary")
-    add_files("main.cpp","src/*.cpp","src/https/*.cpp","src/http/*.cpp")
+    add_files("main.cpp","src/*.cpp","src/https/*.cpp","src/http/*.cpp","src/dns/*.cc")
     add_deps("lsf") --  https://xmake.io/#/manual/project_target?id=add-target-dependencies
     add_packages("spdlog")  --  https://xmake.io/#/manual/project_target?id=add-package-dependencies
     add_packages("asio") 

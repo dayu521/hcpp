@@ -31,7 +31,7 @@ namespace hcpp
                         spdlog::debug("已建立http tunnel");
                         co_return;
                     }
-                    else
+                    else if(!req.host_.empty())
                     {
                         req.headers_.erase("proxy-connection");
                         std::string req_line = req.method_str_ + " " + req.url_ + " " + req.version_ + "\r\n";
@@ -57,6 +57,8 @@ namespace hcpp
                                 co_await rp.transfer_msg_body(w,ss);
                             }
                         }
+                    }else{
+                        co_await ss->async_write_all("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 16\r\n\r\nHello,from http!");
                     }
                 }
             }

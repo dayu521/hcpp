@@ -116,9 +116,10 @@ namespace hcpp
 
     void endpoint_cache::imp::return_back(const std::string &host, const std::string &service, std::shared_ptr<memory> m)
     {
+        m->reset();
+        auto svc = host + ":" + service;
+        if (m->ok())
         {
-            m->reset();
-            auto svc = host + ":" + service;
             std::unique_lock<std::shared_mutex> lock(shm_rq_);
             auto ib = request_queue_.find(svc);
             assert(ib != request_queue_.end());
@@ -140,6 +141,24 @@ namespace hcpp
                 }
             }
             request_queue_.erase(ib);
+        }
+        else
+        {
+            decltype(request_queue_)::value_type::second_type q{};
+            {
+                std::unique_lock<std::shared_mutex> lock(shm_rq_);
+                if (auto ib = request_queue_.find(svc); ib != request_queue_.end())
+                {
+                    q=std::move(ib->second);
+                    request_queue_.erase(ib);
+                }
+            }
+            while (!q.empty())
+            {
+                q.front()->close();
+                q.pop();
+            }
+            spdlog::info("{},移除等待中的client完成",svc);
         }
     }
 
@@ -240,18 +259,19 @@ namespace hcpp
         spdlog::error("unsupport");
     }
 
-    awaitable<std::optional<msg_body>> response_headers::parser_headers( http_response &r)
+    awaitable<std::optional<msg_body>> response_headers::parser_headers(http_response &r)
     {
         auto sv = m_->get_some();
-        r.response_header_str_=sv.substr(0,header_end_+2);
+        r.response_header_str_ = sv.substr(0, header_end_ + 2);
         sv = sv.substr(0, header_end_);
 
         if (parser_header(sv, r.headers_))
         {
             m_->remove_some(header_end_ + 2);
-            auto s=msg_body_size(r.headers_);
-            if(s){
-                r.body_size_=*s;
+            auto s = msg_body_size(r.headers_);
+            if (s)
+            {
+                r.body_size_ = *s;
             }
             co_return std::make_optional<msg_body>();
         }
@@ -264,7 +284,7 @@ namespace hcpp
         auto msg = co_await m_->async_load_until("\r\n\r\n");
         r.response_line_ = msg.substr(0, msg.find("\r\n") + 2);
         m_->remove_some(r.response_line_.size());
-        co_return std::make_optional<response_headers>({msg.size() - r.response_line_.size() - 2,m_});
+        co_return std::make_optional<response_headers>({msg.size() - r.response_line_.size() - 2, m_});
     }
 
     awaitable<bool> msg_body::parser_msg_body(http_response &)

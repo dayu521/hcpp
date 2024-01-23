@@ -43,13 +43,13 @@ namespace hcpp
             if (h.method_ != http_request::CONNECT)
             {
                 constexpr auto ll = sizeof("http://") - 1;
-                if (!svl.starts_with("http://"))
+                if (svl.starts_with("http://"))
                 {
-                    goto L;
+                    svl.remove_prefix(ll);
+                    uri_end -= ll;
+                    service_end -= ll;
                 }
-                svl.remove_prefix(ll);
-                uri_end -= ll;
-                service_end -= ll;
+
                 auto slash_bengin = svl.substr(0, uri_end).find_first_of('/');
                 if (slash_bengin != string_view::npos)
                 {
@@ -58,38 +58,36 @@ namespace hcpp
             }
             static std::regex endpoint_reg(R"(^([\w\.\-]+)(:(0|[1-9]\d{0,4}))?)");
             std::cmatch m;
-            if (!std::regex_match(svl.begin(), svl.begin() + service_end, m, endpoint_reg))
+            if (std::regex_match(svl.begin(), svl.begin() + service_end, m, endpoint_reg))
             {
-                spdlog::error("匹配endpoint_reg 正则表达式失败 输入为: {}", svl.substr(0, uri_end));
-                goto L;
-            }
-            assert(m[1].matched);
-            h.host_ = m[1].str();
-            if (m[3].matched)
-            {
-                auto port = 0;
-                port = std::stoi(m[3].str());
-                if (port > 65535)
+                assert(m[1].matched);
+                h.host_ = m[1].str();
+                if (m[3].matched)
                 {
-                    spdlog::error("端口号不合法");
-                    goto L;
+                    auto port = 0;
+                    port = std::stoi(m[3].str());
+                    if (port > 65535)
+                    {
+                        spdlog::error("端口号不合法");
+                        goto L;
+                    }
+                    // 插入失败说明存在了
+                    h.port_ = m[3].str();
                 }
-                // 插入失败说明存在了
-                h.port_ = m[3].str();
+                else
+                {
+                    // 没有端口号.如果是非CONNECT,给它一个默认端口号
+                    h.port_ = "80";
+                }
+                svl.remove_prefix(service_end);
             }
-            else
-            {
-                // 没有端口号.如果是非CONNECT,给它一个默认端口号
-                h.port_ = "80";
-            }
-            svl.remove_prefix(service_end);
 
             auto url_end = uri_end - service_end;
             // url
             if (h.method_ != http_request::CONNECT)
             {
                 h.url_ = svl.substr(0, url_end);
-                if (h.url_.empty())
+                if (h.url_.empty() && !h.host_.empty())
                 {
                     h.url_ = "/";
                 }

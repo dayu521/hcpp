@@ -1,5 +1,5 @@
-#ifndef DNS_H
-#define DNS_H
+#ifndef SRC_DNS
+#define SRC_DNS
 
 #include <vector>
 #include <string>
@@ -15,7 +15,7 @@ namespace hcpp
 {
     using edp_lists = std::vector<asio::ip::tcp::endpoint>;
     using host_edp = std::pair<std::string, std::string>;
-    // using resolver_results = asio::ip::basic_resolver_results<asio::ip::tcp>;
+
     using asio::any_io_executor;
     using asio::awaitable;
 
@@ -46,4 +46,4 @@ namespace hcpp
     };
 } // namespace hcpp
 
-#endif
+#endif /* SRC_DNS */

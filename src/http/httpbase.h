@@ -26,13 +26,8 @@ namespace hcpp
         std::size_t body_size_ = 0;
         http_msg_body bodys_;
 
-        awaitable<void> transfer_msg_body(std::shared_ptr<hcpp::memory> self, std::shared_ptr<hcpp::memory> to)
-        {
-            if (body_size_ > 0)
-            {
-                co_await transfer_mem(self, to, body_size_);
-            }
-        }
+        awaitable<void> transfer_msg_body(std::shared_ptr<hcpp::memory> self, std::shared_ptr<hcpp::memory> to);
+
     };
 
     struct msg_body

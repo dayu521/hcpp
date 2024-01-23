@@ -75,7 +75,7 @@ namespace hcpp
         return r;
     }
 
-        // TODO 根据规范里的顺序进行读取.其中content-length是在Chunked之后
+    // TODO 根据规范里的顺序进行读取.其中content-length是在Chunked之后
     std::optional<std::size_t> msg_body_size(const http_headers &header)
     {
         if (header.contains("transfer-encoding"))
@@ -98,5 +98,12 @@ namespace hcpp
             return std::stoul(m[0].str());
         }
         return std::nullopt;
+    }
+    awaitable<void> http_msg::transfer_msg_body(std::shared_ptr<hcpp::memory> self, std::shared_ptr<hcpp::memory> to)
+    {
+        if (body_size_ > 0)
+        {
+            co_await transfer_mem(self, to, body_size_);
+        }
     }
 } // namespace hcpp

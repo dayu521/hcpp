@@ -92,7 +92,7 @@ namespace hcpp
 
     http_tunnel::~http_tunnel()
     {
-        spdlog::info("http_tunnel结束,共发送 {}({}kb) 接收 {}({}kb)", w_n_, w_n_ / 1024, r_n_, r_n_ / 1024);
+        spdlog::info("{} http_tunnel结束,共发送 {}({}kb) 接收 {}({}kb)", host_,w_n_, w_n_ / 1024, r_n_, r_n_ / 1024);
     }
 
     awaitable<bool> http_tunnel::wait(std::shared_ptr<slow_dns> dns)
