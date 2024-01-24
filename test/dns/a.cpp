@@ -43,7 +43,7 @@ awaitable<void> dns_lookup(string name,io_context &c)
     dnshttps::dns_reply dr;
 
     std::string res;
-    co_await dd.get(name, htons(net_headers::dns_type::A), dr, res);
+    co_await dd.get(name, htons(net_headers::dns_type::AAAA), dr, res);
 }
 
 TEST_CASE("example")
@@ -51,9 +51,9 @@ TEST_CASE("example")
 
     asio::io_context io_context;
 
-    co_spawn(io_context, dns_lookup("huya.com",io_context), asio::detached);
-    co_spawn(io_context, dns_lookup("github.com",io_context), asio::detached);
-    co_spawn(io_context, dns_lookup("baidu.com",io_context), asio::detached);
+    // co_spawn(io_context, dns_lookup("huya.com",io_context), asio::detached);
+    // co_spawn(io_context, dns_lookup("github.com",io_context), asio::detached);
+    co_spawn(io_context, dns_lookup("www.baidu.com",io_context), asio::detached);
 
     io_context.run();
     // std::this_thread::sleep_for(std::chrono::seconds(3));

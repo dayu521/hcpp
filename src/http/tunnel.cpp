@@ -108,7 +108,7 @@ namespace hcpp
         if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
         {
             spdlog::info("连接远程出错 -> {}:{}", host_, service_);
-            hcpp::slow_dns::get_slow_dns()->remove_svc({host_, service_}, remote_endpoint.address().to_string());
+            dns->remove_svc({host_, service_}, remote_endpoint.address().to_string());
             co_return false;
         }
         s_ = std::make_unique<simple_tunnel_mem>(std::move(sock));

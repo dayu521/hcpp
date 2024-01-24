@@ -487,14 +487,9 @@ namespace harddns
 
 		std::cout << reply << std::endl;
 
-		// if (!has_answer)
-		// 	co_return -1;
-		// else
-		// {
-		// 	int r = 0;
-		// 	// if (true)
+		auto ibb=0;
 		for (auto &&i : reply.substr(fr))
-			std::cout << (((unsigned int)i) & 255) << " ";
+			std::cout << (((unsigned int)i) & 255) << " "; //("<<ibb++<<")
 		std::cout << std::endl;
 		auto r = parse_rfc8484(name, qtype, result, raw, reply, content_idx, cl);
 		// 	// else

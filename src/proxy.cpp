@@ -28,7 +28,7 @@ namespace hcpp
                     {
                         co_await http_tunnel::make_tunnel(ss, req.host_, req.port_, hcpp::slow_dns::get_slow_dns());
                         co_await ss->async_write_all("HTTP/1.1 200 OK\r\n\r\n");
-                        spdlog::debug("已建立http tunnel");
+                        spdlog::debug("建立http tunnel {}",req.host_);
                         co_return;
                     }
                     else if(!req.host_.empty())

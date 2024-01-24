@@ -1,6 +1,8 @@
 #include "dns.h"
 
 #include "json.h"
+#include "dns/dnshttps.h"
+#include "dns/net-headers.h"
 
 #include <mutex>
 #include <shared_mutex>
@@ -10,11 +12,14 @@
 #include <iostream>
 #include <algorithm>
 #include <fstream>
+#include <unordered_set>
 
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
 #include <asio/experimental/awaitable_operators.hpp>
 #include <asio/steady_timer.hpp>
+#include <asio/ip/tcp.hpp>
+#include <asio/connect.hpp>
 
 // FIXME 注意,如果包含coro,编译失败,asio 1.28
 #include <asio/experimental/concurrent_channel.hpp>
@@ -22,6 +27,7 @@
 #include <spdlog/spdlog.h>
 
 using tcp_resolver = asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::resolver>;
+using tcp_socket = asio::use_awaitable_t<>::as_default_on_t<asio::ip::tcp::socket>;
 using asio::detached;
 using asio::use_awaitable;
 
@@ -65,6 +71,51 @@ namespace hcpp
 
         void remove(host_edp hedp);
     };
+    namespace
+    {
+        awaitable<edp_lists> resolve(host_edp hedp, std::vector<std::string> dns_providers)
+        {
+            using namespace harddns;
+            auto c = co_await asio::this_coro::executor;
+            asio::ssl::context ctx(asio::ssl::context::sslv23);
+
+            auto svc_res = co_await tcp_resolver(c).async_resolve("", hedp.second);
+            if(svc_res.empty()){
+                throw std::runtime_error("empty svc");
+            }
+
+            auto svc =svc_res.begin()->endpoint().port();
+
+            std::unordered_set<std::string> ips;
+            for (auto &&dns_host : dns_providers)
+            {
+                tcp_resolver resolver(c);
+                auto endpoints = resolver.resolve(dns_host, "https");
+                // auto endpoints = resolver.resolve("dns.alidns.com", "https");
+                tcp_socket s(c);
+                co_await asio::async_connect(s, endpoints);
+                ssl::stream<tcp_socket> ss(std::move(s), ctx);
+                co_await ss.async_handshake(asio::ssl::stream_base::client);
+                dnshttps dd(std::move(ss), dns_host);
+
+                dnshttps::dns_reply dr;
+
+                std::string res;
+                co_await dd.get(hedp.first, htons(net_headers::dns_type::A), dr, res);
+                for (auto &&i : dr)
+                {
+                    ips.insert(i.second.rdata);
+                }
+            }
+            edp_lists el;
+            for (auto &&i : ips)
+            {
+                asio::ip::tcp::endpoint edp(asio::ip::make_address(i),svc);
+                el.push_back(edp);
+            }
+            co_return el;
+        }
+    }
 
     void slow_dns::slow_dns_imp::remove(host_edp hedp)
     {
@@ -90,7 +141,7 @@ namespace hcpp
             {
                 spdlog::debug("{} => {} {}", hedp.first, i.address().to_string(), i.port());
             }
-            spdlog::debug("已缓存endpoint查询 {} 个", local_dns.size());
+            spdlog::debug("当前线程已缓存endpoint查询 {} 个", local_dns.size());
 
             co_return ip_edp;
         }
@@ -269,14 +320,23 @@ namespace hcpp
             co_return;
         }
 
-        tcp_resolver t(cc->get_executor());
-        // 反而更慢,因为可能接收大量对同一个名字的解析
-        // auto src = co_await t.async_resolve(hedp.first, hedp.second);
-        auto src = t.resolve(hedp.first, hedp.second);
         edp_lists el;
-        el.reserve(src.size());
-        std::ranges::transform(src, std::back_inserter(el), [](auto &&i)
-                               { return std::move(i.endpoint()); });
+        if (hedp.first == "github.com")
+        {
+            el=co_await hcpp::resolve(hedp, {"1.1.1.1"});
+            // el.push_back({asio::ip::make_address("192.30.255.113"), 443});
+        }
+        else
+        {
+            tcp_resolver t(cc->get_executor());
+            // 反而更慢,因为可能接收大量对同一个名字的解析
+            // auto src = co_await t.async_resolve(hedp.first, hedp.second);
+            auto src = t.resolve(hedp.first, hedp.second);
+
+            el.reserve(src.size());
+            std::ranges::transform(src, std::back_inserter(el), [](auto &&i)
+                                   { return std::move(i.endpoint()); });
+        }
 
         {
             std::unique_lock<std::shared_mutex> m(smutex_);
