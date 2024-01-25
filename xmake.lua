@@ -1,22 +1,46 @@
 add_rules("mode.debug", "mode.release")
 
+set_warnings("all")
+
 set_languages("c++20")
 
 -- 设置代理镜像
 -- xmake g --proxy_pac=github_mirror.lua
 -- https://gitee.com/californiacat/lsf.git
+-- https://xmake.io/#/zh-cn/package/remote_package?id=%e4%bd%bf%e7%94%a8%e8%87%aa%e5%bb%ba%e7%a7%81%e6%9c%89%e5%8c%85%e4%bb%93%e5%ba%93
+package("lsf")
+    set_homepage("https://gitee.com/californiacat/lsf.git")
+    set_description("json.")
+    set_urls("https://gitee.com/californiacat/lsf.git")
+    -- set_sourcedir(path.join(os.scriptdir(), "lib/lsf"))
+    
+    on_install(function (package)
+        -- os.mv("jconfig.vc", "jconfig.h")
+        -- os.vrun("nmake -f makefile.vc")
+        os.cp("src/public/*.h", package:installdir("include"))
+        -- os.cp("libjpeg.lib", package:installdir("lib"))
+        --  os.cp(path.join("include"), package:installdir())
+        -- os.cp("include", package:installdir())
+        import("package.tools.xmake").install(package)
+    end)
+package_end()
+
+
 includes("lib/lsf")
-add_requires("asio")
-add_requires("openssl")
+add_requires("asio >=1.28.0",{verify = false})
+add_requires("openssl >=3.2.0",{verify = false})
 add_requires("spdlog")
+add_requires("lsf" ,{debug = true})
 
 target("hcpp")
     set_kind("binary")
     add_files("main.cpp","src/*.cpp","src/https/*.cpp","src/http/*.cpp","src/dns/*.cc")
-    add_deps("lsf") --  https://xmake.io/#/manual/project_target?id=add-target-dependencies
+    -- add_deps("lsf") --  https://xmake.io/#/manual/project_target?id=add-target-dependencies
     add_packages("spdlog")  --  https://xmake.io/#/manual/project_target?id=add-package-dependencies
     add_packages("asio") 
     add_packages("openssl") 
+    add_packages("lsf") 
+
     add_includedirs("src")
     set_policy("build.c++.modules", true)
     -- add_ldflags("-static")
