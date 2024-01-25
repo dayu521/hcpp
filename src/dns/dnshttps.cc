@@ -688,10 +688,10 @@ namespace harddns
 			{
 				if (rdlen != 4)
 					return -1;
-				auto s = (char8_t *)dns_reply.substr(idx, 4).data();
-				for (int i = 0; i < 4; i++)
+				auto s = dns_reply.substr(idx, 4);
+				for (char8_t i : s)
 				{
-					dns_ans.rdata += std::to_string(s[i]) + ".";
+					dns_ans.rdata += std::to_string(((unsigned int)i)&255) + ".";
 				}
 				dns_ans.rdata.pop_back();
 				result[acnt++] = dns_ans;

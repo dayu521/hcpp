@@ -58,7 +58,7 @@ namespace hcpp
             }
             static std::regex endpoint_reg(R"(^([\w\.\-]+)(:(0|[1-9]\d{0,4}))?)");
             std::cmatch m;
-            if (std::regex_match(svl.begin(), svl.begin() + service_end, m, endpoint_reg))
+            if (std::regex_match(svl.data(), svl.data() + service_end, m, endpoint_reg))
             {
                 assert(m[1].matched);
                 h.host_ = m[1].str();
