@@ -3,6 +3,7 @@
 #include <asio/read_until.hpp>
 #include <asio/write.hpp>
 #include <asio/experimental/awaitable_operators.hpp>
+#include <asio/streambuf.hpp>
 
 namespace hcpp
 {
@@ -141,8 +142,4 @@ namespace hcpp
         }
     }
 
-    bool hcpp::socket_memory::ok()
-    {
-        return read_ok_ && write_ok_;
-    }
 } // namespace hcpp

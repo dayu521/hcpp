@@ -3,6 +3,12 @@ add_rules("mode.debug", "mode.release")
 if is_os("linux") then
     set_allowedmodes("debug")
     set_defaultmode("debug")
+    set_toolchains("clang")
+elseif is_os("windows") then
+    set_encodings("utf-8")
+    add_cxxflags("/source-charset:utf-8")
+else
+
 end
 
 set_warnings("all")
@@ -37,12 +43,7 @@ else
     add_requires("openssl >=3.2.0",{verify = false})
 end
 
-if is_os("windows") then
-    add_defines("MSVC_SPECIAL")
-    add_cxxflags("/source-charset:utf-8")
-end
-
-add_requires("spdlog")
+add_requires("spdlog >=1.12.0")
 add_requires("lsf" ,{debug = true})
 
 target("hcpp")
@@ -71,6 +72,11 @@ target("hcpp")
     --     os.cp("src/hcpp-cfg.json", target:targetdir())
     -- end)
 target_end()
+
+-- includes("@builtin/xpack")
+-- xpack("hcpp")
+--     set_formats("srczip", "srctargz")
+--     add_sourcefiles("(./**)")
 
 includes("test")
 

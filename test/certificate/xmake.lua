@@ -1,5 +1,7 @@
 add_rules("mode.debug", "mode.release")
 
+set_default(false)
+
 set_languages("c++20")
 if is_os("windows") then
     add_defines("MSVC_SPECIAL")
@@ -7,18 +9,31 @@ if is_os("windows") then
 end
 
 -- https://gitee.com/californiacat/lsf.git
-add_requires("openssl")
+
+if is_os("windows") then
+    add_requires("openssl3",{verify = false})
+else
+    add_requires("openssl3",{verify = false},{system = false})
+end
 add_requires("spdlog")
 
 target("ca2")
     set_kind("binary")
     add_files("ca2.cpp")
-    add_packages("openssl") 
+    if is_os("windows") then 
+        add_packages("openssl3") 
+    else
+        add_packages("openssl") 
+    end 
 
 target("ca5")
     set_kind("binary")
     add_files("ca5.cpp")
-    add_packages("openssl") 
+    if is_os("windows") then 
+        add_packages("openssl3") 
+    else
+        add_packages("openssl") 
+    end 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io
 --

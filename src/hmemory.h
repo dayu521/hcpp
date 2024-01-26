@@ -1,5 +1,5 @@
-#ifndef SRC_HTTP_MEMORY
-#define SRC_HTTP_MEMORY
+#ifndef SRC_MEMORY
+#define SRC_MEMORY
 #include <cstddef>
 #include <vector>
 #include <string>
@@ -59,4 +59,4 @@ namespace hcpp
     }
 } // namespace hcpp
 
-#endif /* SRC_HTTP_MEMORY */
+#endif /* SRC_MEMORY */

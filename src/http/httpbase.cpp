@@ -12,8 +12,6 @@ namespace hcpp
     {
         using std::string;
         // Host: server.example.com
-        bool ok = false;
-        string_view error;
         while (svl.size() > 0)
         {
             auto svl_old = svl;
@@ -58,7 +56,6 @@ namespace hcpp
             //     h[name] += val;
             // }
         }
-    T:
         return true;
     L:
         return false;

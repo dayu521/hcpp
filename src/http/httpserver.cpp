@@ -16,7 +16,7 @@
 
 namespace hcpp
 {
-    http_server::http_server(std::shared_ptr<endpoint_cache> cache, std::shared_ptr<slow_dns> dns) : endpoint_cache_(cache), slow_dns_(dns)
+    http_server::http_server(std::shared_ptr<endpoint_cache> cache, std::shared_ptr<slow_dns> dns) :slow_dns_(dns), endpoint_cache_(cache)
     {
     }
 
