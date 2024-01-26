@@ -20,8 +20,6 @@ namespace hcpp
         if (!std::filesystem::exists(config_path))
         {
             spdlog::warn("文件不存在: {} 跳过初始化,使用默认设置", config_path);
-            dp_.push_back({"1.1.1.1", "1.1.1.1"});
-            // TODO 其他配置初始化
             return;
         }
         lsf::Json j;
@@ -52,7 +50,6 @@ namespace hcpp
         try
         {
             hm_.clear();
-            dp_.clear();
             cs_ = {};
 
             for (auto &&i : save_callback_)
@@ -93,7 +90,8 @@ namespace hcpp
 
     bool hcpp::config::load_dns_provider(std::shared_ptr<slow_dns> sd)
     {
-        return false;
+        sd->load_dp(cs_.dns_provider_);
+        return true;
     }
 
     uint16_t config::get_port() const

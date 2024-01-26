@@ -44,7 +44,7 @@ awaitable<void> listener()
 
     // co_spawn(executor,hcpp::https_listen(cc),detached);
 
-    tcp_acceptor acceptor(executor, {tcp::v4(), hcpp::config::get_config()->get_port()});
+    tcp_acceptor acceptor(executor, {tcp::v4(), 55555});
     auto d = acceptor.local_endpoint();
     spdlog::debug("服务器监听端口:{}", d.port());
     for (;;)
@@ -79,6 +79,7 @@ int main(int argc, char **argv)
         }
         auto c = hcpp::config::get_config(cfg_path);
         c->load_host_mapping(hcpp::slow_dns::get_slow_dns());
+        c->load_dns_provider(hcpp::slow_dns::get_slow_dns());
         c->save_callback([sd=hcpp::slow_dns::get_slow_dns()](auto &&cs)
                          { sd->save_hm(cs.hm_); });
 

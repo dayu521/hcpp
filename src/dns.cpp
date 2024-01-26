@@ -65,7 +65,7 @@ namespace hcpp
     };
     namespace
     {
-        awaitable<edp_lists> resolve(host_edp hedp, std::vector<std::string> dns_providers)
+        awaitable<edp_lists> resolve(host_edp hedp, const std::vector<dns_provider> & dns_providers)
         {
             using namespace harddns;
             auto c = co_await asio::this_coro::executor;
@@ -80,16 +80,16 @@ namespace hcpp
             auto svc = svc_res.begin()->endpoint().port();
 
             std::unordered_set<std::string> ips;
-            for (auto &&dns_host : dns_providers)
+            for (auto &&provider : dns_providers)
             {
                 tcp_resolver resolver(c);
-                auto endpoints = resolver.resolve(dns_host, "https");
+                auto endpoints = resolver.resolve(provider.host_, "https");
                 // auto endpoints = resolver.resolve("dns.alidns.com", "https");
                 tcp_socket s(c);
                 co_await asio::async_connect(s, endpoints);
                 ssl::stream<tcp_socket> ss(std::move(s), ctx);
                 co_await ss.async_handshake(asio::ssl::stream_base::client);
-                dnshttps dd(std::move(ss), dns_host);
+                dnshttps dd(std::move(ss), provider.host_);
 
                 dnshttps::dns_reply dr;
 
@@ -294,7 +294,7 @@ namespace hcpp
         edp_lists el;
         if (hedp.first == "github.com")
         {
-            el = co_await hcpp::resolve(hedp, {"1.1.1.1"});
+            el = co_await hcpp::resolve(hedp, dns_providers_);
             // el.push_back({asio::ip::make_address("192.30.255.113"), 443});
         }
         else

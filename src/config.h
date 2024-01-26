@@ -23,8 +23,8 @@ namespace hcpp
     struct dns_provider
     {
         std::string provider_;
-        std::string ip_;
-        JS_OBJECT(JS_MEMBER(provider_), JS_MEMBER(ip_));
+        std::string host_;
+        JS_OBJECT(JS_MEMBER(provider_), JS_MEMBER(host_));
     };
 
     struct config_struct
@@ -34,7 +34,8 @@ namespace hcpp
         std::string ca_path_;
         std::string pkb_path_;
         std::string host_mapping_path_="";
-        std::vector<dns_provider> dns_provider_;
+        std::vector<dns_provider> dns_provider_={{.provider_="1.1.1.1", .host_="1.1.1.1"},{.provider_="ali", .host_="dns.alidns.com"}};
+        
         JS_OBJECT(JS_MEMBER(port_),JS_MEMBER(ca_path_), JS_MEMBER(pkb_path_), JS_MEMBER(host_mapping_path_), JS_MEMBER(dns_provider_));
     };
 
@@ -64,7 +65,6 @@ namespace hcpp
         config(std::string_view config_path);
 
     private:
-        std::vector<dns_provider> dp_;
         config_struct cs_;
         std::vector<std::function<void(config &)>> save_callback_;
     };
