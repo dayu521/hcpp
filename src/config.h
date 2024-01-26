@@ -45,7 +45,7 @@ namespace hcpp
     {
 
     public:
-        static constexpr inline std::string CONFIG_DEFAULT_PATH = "./hcpp-cfg.json";
+        static constinit inline std::string CONFIG_DEFAULT_PATH = "./hcpp-cfg.json";
         static std::shared_ptr<config> get_config(std::string_view config_path = CONFIG_DEFAULT_PATH);
 
     public:
