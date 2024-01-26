@@ -1,5 +1,10 @@
 add_rules("mode.debug", "mode.release")
 
+if is_os("linux") then
+    set_allowedmodes("debug")
+    set_defaultmode("debug")
+end
+
 set_warnings("all")
 
 set_languages("c++20")
@@ -32,11 +37,18 @@ else
     add_requires("openssl >=3.2.0",{verify = false})
 end
 
+if is_os("windows") then
+    add_defines("MSVC_SPECIAL")
+    add_cxxflags("/source-charset:utf-8")
+end
+
 add_requires("spdlog")
 add_requires("lsf" ,{debug = true})
 
 target("hcpp")
     set_kind("binary")
+    -- add_ldflags("-static")
+    add_includedirs("src")
     add_files("main.cpp","src/*.cpp","src/https/*.cpp","src/http/*.cpp","src/dns/*.cc")
     -- add_deps("lsf") --  https://xmake.io/#/manual/project_target?id=add-target-dependencies
     add_packages("spdlog")  --  https://xmake.io/#/manual/project_target?id=add-package-dependencies
@@ -48,13 +60,17 @@ target("hcpp")
     end 
     add_packages("lsf") 
 
-    add_includedirs("src")
     set_policy("build.c++.modules", true)
-    -- add_ldflags("-static")
-    if is_os("windows") then
-        add_defines("MSVC_SPECIAL")
-        add_cxxflags("/source-charset:utf-8")
-    end
+    -- set_rundir("$(buildir)")
+    -- add_configfiles("src/hcpp-cfg.json")
+
+    after_build(function (target)
+        os.cp("src/hcpp-cfg.json", target:targetdir())
+    end)
+    -- before_run(function (target)
+    --     os.cp("src/hcpp-cfg.json", target:targetdir())
+    -- end)
+target_end()
 
 includes("test")
 

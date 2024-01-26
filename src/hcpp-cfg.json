@@ -1,0 +1,7 @@
+{
+    // "port_":55556,
+    "ca_path_":"",
+    "pkb_path_":"",
+    "host_mapping_path_":"",//hm.json
+    "dns_provider_":[]
+}

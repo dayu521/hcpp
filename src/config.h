@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <cstdint>
 
 namespace hcpp
 {
@@ -28,11 +29,13 @@ namespace hcpp
 
     struct config_struct
     {
+        //TODO 可以重载json解析 uint16_t
+        int port_=55555;
         std::string ca_path_;
         std::string pkb_path_;
-        std::string host_mapping_path_;
+        std::string host_mapping_path_="";
         std::vector<dns_provider> dns_provider_;
-        JS_OBJECT(JS_MEMBER(ca_path_), JS_MEMBER(pkb_path_), JS_MEMBER(host_mapping_path_), JS_MEMBER(dns_provider_));
+        JS_OBJECT(JS_MEMBER(port_),JS_MEMBER(ca_path_), JS_MEMBER(pkb_path_), JS_MEMBER(host_mapping_path_), JS_MEMBER(dns_provider_));
     };
 
     class slow_dns;
@@ -50,17 +53,20 @@ namespace hcpp
 
         bool load_host_mapping(std::shared_ptr<slow_dns> sd);
         bool load_dns_provider(std::shared_ptr<slow_dns> sd);
+        uint16_t get_port()const;
 
-        void save_callback(std::function<void(const config &)> sc);
+        void save_callback(std::function<void(config &)> sc);
+
+    public:
+        std::vector<host_mapping> hm_;
 
     private:
         config(std::string_view config_path);
 
     private:
-        std::vector<host_mapping> hm_;
         std::vector<dns_provider> dp_;
         config_struct cs_;
-        std::vector<std::function<void(const config &)>> save_callback_;
+        std::vector<std::function<void(config &)>> save_callback_;
     };
 } // namespace hcpp
 

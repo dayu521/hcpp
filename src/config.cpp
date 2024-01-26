@@ -33,7 +33,7 @@ namespace hcpp
             spdlog::error("{} : {}", config_path, j.get_errors());
             throw std::runtime_error("解析config出错");
         }
-        lsf::json_to_struct(*res, cs_);
+        lsf::json_to_struct_ignore_absence(*res, cs_);
 
         if (!cs_.host_mapping_path_.empty())
         {
@@ -77,6 +77,7 @@ namespace hcpp
                 }
             }
             bu.clear();
+            spdlog::info("config保存成功");
         }
         catch (const std::exception &e)
         {
@@ -95,7 +96,16 @@ namespace hcpp
         return false;
     }
 
-    void hcpp::config::save_callback(std::function<void(const config &)> sc)
+    uint16_t config::get_port() const
+    {
+        if (cs_.port_ > 65535 || cs_.port_ < 0)
+        {
+            spdlog::warn("端口号有问题,将被不确定转换: {}", cs_.port_);
+        }
+        return cs_.port_;
+    }
+
+    void hcpp::config::save_callback(std::function<void(config &)> sc)
     {
         save_callback_.push_back(sc);
     }

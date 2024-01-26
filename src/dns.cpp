@@ -43,6 +43,8 @@ namespace hcpp
     };
     struct slow_dns::slow_dns_imp
     {
+        std::vector<dns_provider> dns_providers_;
+
         std::shared_mutex smutex_;
         std::map<host_edp, edp_lists> edp_cache_;
         std::unique_ptr<tcp_resolver> resolver_;
@@ -189,6 +191,11 @@ namespace hcpp
         std::ranges::transform(hm, std::inserter(imp_->edp_cache_, imp_->edp_cache_.begin()), tf);
         imp_->has_init_ = true;
         spdlog::info("加载host mapping {} 个", hm.size());
+    }
+
+    void slow_dns::load_dp(const std::vector<dns_provider> &dp)
+    {
+        imp_->dns_providers_=dp;
     }
 
     void slow_dns::save_hm(std::vector<host_mapping> & hm)

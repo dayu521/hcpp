@@ -20,6 +20,7 @@ namespace hcpp
     using asio::awaitable;
 
     struct host_mapping;
+    struct dns_provider;
 
     class slow_dns
     {
@@ -32,6 +33,7 @@ namespace hcpp
         void remove_svc(const host_edp & hedp, std::string_view ip);
 
         void load_hm(const std::vector<host_mapping> & hm);
+        void load_dp(const std::vector<dns_provider> & dp);
         void save_hm(std::vector<host_mapping> & hm);
 
         // TODO 清理缓存.那些无法连接上的也需要清理

@@ -40,17 +40,17 @@ awaitable<void> listener()
 {
     auto executor = co_await this_coro::executor;
 
-    auto cc = std::make_shared<hcpp::socket_channel>(executor,10);
+    auto cc = std::make_shared<hcpp::socket_channel>(executor, 10);
 
     // co_spawn(executor,hcpp::https_listen(cc),detached);
 
-    tcp_acceptor acceptor(executor, {tcp::v4(), 55555});
+    tcp_acceptor acceptor(executor, {tcp::v4(), hcpp::config::get_config()->get_port()});
     auto d = acceptor.local_endpoint();
     spdlog::debug("服务器监听端口:{}", d.port());
     for (;;)
     {
         auto socket = co_await acceptor.async_accept();
-        co_spawn(executor, http_proxy(hcpp::http_client(std::move(socket)),cc), detached);
+        co_spawn(executor, http_proxy(hcpp::http_client(std::move(socket)), cc), detached);
     }
 }
 
@@ -70,17 +70,17 @@ int main(int argc, char **argv)
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto)
                            {
-                            // hcpp::slow_dns::get_slow_dns()->save_hm(); 
                             io_context.stop(); });
 
-        // dns缓存初始化
-        std::string cfg_path=hcpp::config::CONFIG_DEFAULT_PATH;
+        std::string cfg_path = hcpp::config::CONFIG_DEFAULT_PATH;
         if (argc == 2)
         {
             cfg_path = argv[1];
         }
         auto c = hcpp::config::get_config(cfg_path);
         c->load_host_mapping(hcpp::slow_dns::get_slow_dns());
+        c->save_callback([sd=hcpp::slow_dns::get_slow_dns()](auto &&cs)
+                         { sd->save_hm(cs.hm_); });
 
         auto create_thread = [&io_context](auto self, int i) -> void
         {
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
         };
         create_thread(create_thread, 3);
 
-        co_spawn(io_context, listener(), [&io_context](std::exception_ptr eptr)
+        co_spawn(io_context, listener(), [](std::exception_ptr eptr)
                  {
                      // try
                      // {
