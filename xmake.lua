@@ -15,20 +15,23 @@ package("lsf")
     -- set_sourcedir(path.join(os.scriptdir(), "lib/lsf"))
     
     on_install(function (package)
-        -- os.mv("jconfig.vc", "jconfig.h")
-        -- os.vrun("nmake -f makefile.vc")
         os.cp("src/public/*.h", package:installdir("include"))
         -- os.cp("libjpeg.lib", package:installdir("lib"))
-        --  os.cp(path.join("include"), package:installdir())
-        -- os.cp("include", package:installdir())
         import("package.tools.xmake").install(package)
     end)
 package_end()
 
 
-includes("lib/lsf")
-add_requires("asio >=1.28.0",{verify = false})
-add_requires("openssl >=3.2.0",{verify = false})
+-- includes("lib/lsf")
+
+if is_os("windows") then
+    add_requires("asio 1.28.0",{verify = false})
+    add_requires("openssl3",{verify = false})
+else
+    add_requires("asio >=1.28.0",{verify = false})
+    add_requires("openssl >=3.2.0",{verify = false})
+end
+
 add_requires("spdlog")
 add_requires("lsf" ,{debug = true})
 
@@ -38,7 +41,11 @@ target("hcpp")
     -- add_deps("lsf") --  https://xmake.io/#/manual/project_target?id=add-target-dependencies
     add_packages("spdlog")  --  https://xmake.io/#/manual/project_target?id=add-package-dependencies
     add_packages("asio") 
-    add_packages("openssl") 
+    if is_os("windows") then 
+        add_packages("openssl3") 
+    else
+        add_packages("openssl") 
+    end 
     add_packages("lsf") 
 
     add_includedirs("src")

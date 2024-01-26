@@ -1,6 +1,5 @@
 #include "dns.h"
-
-#include "json.h"
+#include "config.h"
 #include "dns/dnshttps.h"
 #include "dns/net-headers.h"
 
@@ -11,7 +10,6 @@
 #include <optional>
 #include <iostream>
 #include <algorithm>
-#include <fstream>
 #include <unordered_set>
 
 #include <asio/co_spawn.hpp>
@@ -39,14 +37,6 @@ using channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void
 
 namespace hcpp
 {
-    struct host_mapping
-    {
-        std::string host_;
-        std::string port_;
-        std::vector<std::string> ips_;
-        JS_OBJECT(JS_MEMBER(host_), JS_MEMBER(port_), JS_MEMBER(ips_));
-    };
-
     struct dns_cfg
     {
         std::vector<host_mapping> mappings_;
@@ -80,11 +70,12 @@ namespace hcpp
             asio::ssl::context ctx(asio::ssl::context::sslv23);
 
             auto svc_res = co_await tcp_resolver(c).async_resolve("", hedp.second);
-            if(svc_res.empty()){
+            if (svc_res.empty())
+            {
                 throw std::runtime_error("empty svc");
             }
 
-            auto svc =svc_res.begin()->endpoint().port();
+            auto svc = svc_res.begin()->endpoint().port();
 
             std::unordered_set<std::string> ips;
             for (auto &&dns_host : dns_providers)
@@ -110,7 +101,7 @@ namespace hcpp
             edp_lists el;
             for (auto &&i : ips)
             {
-                asio::ip::tcp::endpoint edp(asio::ip::make_address(i),svc);
+                asio::ip::tcp::endpoint edp(asio::ip::make_address(i), svc);
                 el.push_back(edp);
             }
             co_return el;
@@ -171,30 +162,13 @@ namespace hcpp
         // TODO 全局缓存中对应条目,降低优先级或者直接取消这个ip
     }
 
-    void slow_dns::init_resolver(any_io_executor executor, std::string path)
+    void slow_dns::load_hm(const std::vector<host_mapping> &hm)
     {
-        // 初始化生成器
-        imp_->resolver_ = std::make_unique<tcp_resolver>(executor);
-        imp_->dns_path_ = path;
-
         if (imp_->dns_path_.empty())
         {
             return;
         }
 
-        lsf::Json j;
-        lsf::SerializeBuilder bu;
-
-        auto res = j.run(std::make_unique<lsf::FileSource>(imp_->dns_path_));
-        if (!res)
-        {
-            std::cout << j.get_errors() << std::endl;
-            throw std::runtime_error("解析出错");
-        }
-        std::vector<host_mapping> vv;
-        lsf::json_to_struct(*res, vv);
-
-        // 解析
         std::unique_lock<std::shared_mutex> m(imp_->smutex_);
         if (imp_->has_init_)
         {
@@ -212,12 +186,12 @@ namespace hcpp
             return std::make_pair(k, v);
         };
 
-        std::ranges::transform(vv, std::inserter(imp_->edp_cache_, imp_->edp_cache_.begin()), tf);
+        std::ranges::transform(hm, std::inserter(imp_->edp_cache_, imp_->edp_cache_.begin()), tf);
         imp_->has_init_ = true;
-        spdlog::info("从文件读取host mapping {} 个", vv.size());
+        spdlog::info("加载host mapping {} 个", hm.size());
     }
 
-    void slow_dns::save_mapping()
+    void slow_dns::save_hm(std::vector<host_mapping> & hm)
     {
         if (imp_->dns_path_.empty())
         {
@@ -230,10 +204,9 @@ namespace hcpp
             spdlog::error("slow_dns 检测到重复保存");
             return;
         }
-        std::vector<host_mapping> vv;
-        vv.reserve(imp_->edp_cache_.size());
+        hm.reserve(imp_->edp_cache_.size());
 
-        std::ranges::transform(imp_->edp_cache_, std::back_inserter(vv), [](auto &&i)
+        std::ranges::transform(imp_->edp_cache_, std::back_inserter(hm), [](auto &&i)
                                {
             host_mapping hm;
             hm.host_=i.first.first;
@@ -245,17 +218,8 @@ namespace hcpp
             }
             return hm; });
 
-        lsf::SerializeBuilder bu;
-        lsf::struct_to_jsonstr(vv, bu);
-        std::ofstream f(imp_->dns_path_);
-        if (!f.is_open())
-        {
-            throw std::runtime_error("打开dns cache文件失败");
-        }
-        f << bu.get_jsonstring();
-        // std::cout << bu.get_jsonstring() << std::endl;
         imp_->has_save_ = true;
-        spdlog::info("保存解析的host mapping {} 个", vv.size());
+        spdlog::info("保存解析的host mapping {} 个", hm.size());
     }
 
     slow_dns::slow_dns() : imp_(std::make_shared<slow_dns_imp>())
@@ -323,7 +287,7 @@ namespace hcpp
         edp_lists el;
         if (hedp.first == "github.com")
         {
-            el=co_await hcpp::resolve(hedp, {"1.1.1.1"});
+            el = co_await hcpp::resolve(hedp, {"1.1.1.1"});
             // el.push_back({asio::ip::make_address("192.30.255.113"), 443});
         }
         else

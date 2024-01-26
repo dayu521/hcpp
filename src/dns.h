@@ -19,6 +19,8 @@ namespace hcpp
     using asio::any_io_executor;
     using asio::awaitable;
 
+    struct host_mapping;
+
     class slow_dns
     {
     public:
@@ -29,8 +31,8 @@ namespace hcpp
         std::optional<edp_lists> resolve_cache(host_edp hedp);
         void remove_svc(const host_edp & hedp, std::string_view ip);
 
-        void init_resolver(any_io_executor executor, std::string path = "");
-        void save_mapping();
+        void load_hm(const std::vector<host_mapping> & hm);
+        void save_hm(std::vector<host_mapping> & hm);
 
         // TODO 清理缓存.那些无法连接上的也需要清理
 

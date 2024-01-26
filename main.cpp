@@ -25,6 +25,7 @@
 
 #include "proxy.h"
 #include "dns.h"
+#include "config.h"
 
 using asio::awaitable;
 using asio::co_spawn;
@@ -69,16 +70,17 @@ int main(int argc, char **argv)
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto)
                            {
-                            hcpp::slow_dns::get_slow_dns()->save_mapping(); 
+                            // hcpp::slow_dns::get_slow_dns()->save_hm(); 
                             io_context.stop(); });
 
         // dns缓存初始化
-        std::string dns_path;
+        std::string cfg_path=hcpp::config::CONFIG_DEFAULT_PATH;
         if (argc == 2)
         {
-            dns_path = argv[1];
+            cfg_path = argv[1];
         }
-        hcpp::slow_dns::get_slow_dns()->init_resolver(io_context.get_executor(), dns_path);
+        auto c = hcpp::config::get_config(cfg_path);
+        c->load_host_mapping(hcpp::slow_dns::get_slow_dns());
 
         auto create_thread = [&io_context](auto self, int i) -> void
         {
