@@ -36,7 +36,7 @@ using tcp_acceptor = use_awaitable_t<>::as_default_on_t<tcp::acceptor>;
 using tcp_socket = use_awaitable_t<>::as_default_on_t<tcp::socket>;
 namespace this_coro = asio::this_coro;
 
-awaitable<void> listener()
+awaitable<void> listener(uint16_t port)
 {
     auto executor = co_await this_coro::executor;
 
@@ -44,9 +44,8 @@ awaitable<void> listener()
 
     // co_spawn(executor,hcpp::https_listen(cc),detached);
 
-    tcp_acceptor acceptor(executor, {tcp::v4(), 55555});
-    auto d = acceptor.local_endpoint();
-    spdlog::debug("服务器监听端口:{}", d.port());
+    tcp_acceptor acceptor(executor, {tcp::v4(), port});
+    spdlog::debug("服务器监听端口:{}", acceptor.local_endpoint().port());
     for (;;)
     {
         auto socket = co_await acceptor.async_accept();
@@ -110,7 +109,7 @@ int main(int argc, char **argv)
         };
         create_thread(create_thread, 3);
 
-        co_spawn(io_context, listener(), [](std::exception_ptr eptr)
+        co_spawn(io_context, listener(c->get_port()), [](std::exception_ptr eptr)
                  {
                      // try
                      // {

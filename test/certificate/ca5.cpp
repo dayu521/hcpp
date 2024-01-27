@@ -60,7 +60,7 @@ void set_serialNumber(X509 *cert)
     auto *serial = ASN1_INTEGER_new();
     BN_to_ASN1_INTEGER(serial_bn, serial);
 
-    // X509_set_serialNumber
+    // X509_set_serialNumber >=3.2.0
     X509_set_serialNumber(cert, serial);
 
     ASN1_INTEGER_free(serial);

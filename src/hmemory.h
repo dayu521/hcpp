@@ -1,5 +1,5 @@
-#ifndef SRC_MEMORY
-#define SRC_MEMORY
+#ifndef SRC_HMEMORY
+#define SRC_HMEMORY
 #include <cstddef>
 #include <vector>
 #include <string>
@@ -13,6 +13,7 @@ namespace hcpp
 {
     using namespace asio;
 
+    //TODO 抽象出buff,免去子类实现
     class memory
     {
     public:
@@ -22,11 +23,11 @@ namespace hcpp
         virtual awaitable<std::string_view> async_load_some(std::size_t max_n = 1024 * 4) {co_return "";}
         virtual awaitable<std::size_t> async_write_some(std::string_view) {co_return 0;}
 
-        // XXX 读直到.返回已读到的字符串.
+        // XXX 读直到.返回已读到的字符串.同时把读到的所有字符放到buff中,通过get_some remove_some 进行缓存读取和消耗
         virtual awaitable<std::string_view> async_load_until(const std::string &) {co_return "";}
         virtual awaitable<void> async_write_all(std::string_view) {co_return;}
         virtual std::string_view get_some() {return {};}
-        virtual void remove_some(std::size_t index) {}
+        virtual std::size_t remove_some(std::size_t index) {return 0;}
         virtual bool ok() { return read_ok_ && write_ok_; }
         virtual void reset() {}
 
@@ -59,4 +60,4 @@ namespace hcpp
     }
 } // namespace hcpp
 
-#endif /* SRC_MEMORY */
+#endif /* SRC_HMEMORY */

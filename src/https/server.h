@@ -3,6 +3,7 @@
 
 #include "asio_coroutine_net.h"
 #include "dns.h"
+#include "http/httpserver.h"
 
 #include <string>
 
@@ -32,6 +33,11 @@ namespace hcpp
     };
 
     awaitable<void> https_listen(std::shared_ptr<socket_channel> src);
+
+    class https_server : public http_server
+    {
+
+    };
 } // namespace hcpp
 
 #endif /* SRC_HTTPS_SERVER */

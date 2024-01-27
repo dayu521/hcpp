@@ -2,6 +2,7 @@
 #include "config.h"
 #include "dns/dnshttps.h"
 #include "dns/net-headers.h"
+#include "https/ssl_socket_wrap.h"
 
 #include <mutex>
 #include <shared_mutex>
@@ -30,7 +31,7 @@ using asio::detached;
 using asio::use_awaitable;
 
 using namespace asio::experimental::awaitable_operators;
-using steady_timer = asio::use_awaitable_t<>::as_default_on_t<asio::steady_timer>;
+using steady_timer_a = asio::use_awaitable_t<>::as_default_on_t<asio::steady_timer>;
 
 using asio::experimental::concurrent_channel;
 using channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, hcpp::edp_lists)>>;
@@ -87,9 +88,12 @@ namespace hcpp
                 // auto endpoints = resolver.resolve("dns.alidns.com", "https");
                 tcp_socket s(c);
                 co_await asio::async_connect(s, endpoints);
-                ssl::stream<tcp_socket> ss(std::move(s), ctx);
-                co_await ss.async_handshake(asio::ssl::stream_base::client);
-                dnshttps dd(std::move(ss), provider.host_);
+
+                auto ssl_m=std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::client);
+                ssl_m->init(std::move(s));
+                co_await ssl_m->wait(); 
+
+                dnshttps dd(ssl_m, provider.host_);
 
                 dnshttps::dns_reply dr;
 
@@ -245,7 +249,7 @@ namespace hcpp
 
         auto ex = co_await asio::this_coro::executor;
 
-        steady_timer t(ex);
+        steady_timer_a t(ex);
         t.expires_after(std::chrono::seconds(8));
 
         // 注意,异步发送,一定要指定可发送的消息大小.

@@ -13,7 +13,8 @@ namespace hcpp
     using tcp_socket = use_awaitable_t<>::as_default_on_t<ip::tcp::socket>;
     using ssl_socket = ssl::stream<tcp_socket>;
 
-    class ssl_socket_wrap : public memory
+    // XXX 线程不安全
+    class ssl_sock_mem : public memory
     {
     public:
         virtual awaitable<void> wait() override;
@@ -23,8 +24,8 @@ namespace hcpp
         virtual awaitable<std::string_view> async_load_until(const std::string &) override;
         virtual awaitable<void> async_write_all(std::string_view) override;
         virtual std::string_view get_some() override;
-        virtual void remove_some(std::size_t) override;
-        virtual void reset() override { read_index_ = write_index_ = 0; /*assert(buffs_.empty());*/ }
+        virtual std::size_t remove_some(std::size_t) override;
+        virtual void reset() override { read_index_ = write_index_ = 0; buffs_.clear(); }
 
         struct mem_block
         {
@@ -33,15 +34,23 @@ namespace hcpp
         };
 
     public:
+        using ssl_stream_type = ssl::stream_base::handshake_type;
+
         /// @brief
         /// @param sock 需要是准备读写状态
-        ssl_socket_wrap(tcp_socket &&sock);
+        void init(tcp_socket &&sock);
         /// @brief
-        /// @param nh_sock_ 同样读写状态
-        /// @param protocol_ 通过原始socket的endpoin获取protocol
-        ssl_socket_wrap(tcp_socket::native_handle_type nh_sock_, tcp_socket::protocol_type protocol_);
+        /// @param nh_sock 同样读写状态
+        /// @param protocol 通过原始socket的endpoin获取protocol
+        awaitable<void> init(tcp_socket::native_handle_type nh_sock, tcp_socket::protocol_type protocol);
+
+        ssl_sock_mem(ssl_stream_type stream_type);
+        
+        void set_sni(std::string sni);
 
     private:
+        ssl::stream_base::handshake_type stream_type_;
+        std::unique_ptr<ssl::context> ctx_;
         std::unique_ptr<ssl_socket> ssl_sock_;
 
         std::set<mem_block, std::less<>> buffs_;

@@ -25,12 +25,12 @@
 #define harddns_https_h
 
 #include "asio_coroutine_net.h"
+#include "hmemory.h"
 
 #include <stdint.h>
 #include <string>
 #include <map>
-
-#include <asio/ssl.hpp>
+#include <memory>
 
 namespace harddns
 {
@@ -42,8 +42,6 @@ namespace harddns
 
 	class dnshttps
 	{
-
-		std::string err;
 
 	public:
 		struct answer_t
@@ -63,7 +61,7 @@ namespace harddns
 		int parse_json(const std::string &, uint16_t, dns_reply &, std::string &, const std::string &, std::string::size_type, size_t);
 
 	public:
-		dnshttps(ssl::stream<tcp_socket> socket,std::string dns_host):socket_(std::move(socket)),dns_host_(dns_host)
+		dnshttps(std::shared_ptr<hcpp::memory> mem,std::string dns_host):mem_(mem),dns_host_(dns_host)
 		{
 		}
 
@@ -75,7 +73,7 @@ namespace harddns
 		awaitable<int> get(const std::string &, uint16_t, dns_reply &, std::string &);
 
 	private:
-		ssl::stream<tcp_socket> socket_;
+		std::shared_ptr<hcpp::memory> mem_;
 		std::string dns_host_;
 	};
 

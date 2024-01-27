@@ -427,9 +427,7 @@ namespace harddns
 
 		// maybe closed due to error or not initialized in the first place
 
-		std::cout << req << std::endl;
-
-		auto n = co_await async_write(socket_, buffer(req));
+		co_await mem_->async_write_all(req);
 
 		string::size_type idx = string::npos, content_idx = string::npos;
 		size_t cl = 0;
@@ -438,15 +436,15 @@ namespace harddns
 
 		asio::streambuf bufff;
 
-		auto fr = co_await async_read_until(socket_, bufff, "\r\n\r\n");
+		auto sv1 = co_await mem_->async_load_until("\r\n\r\n");
+		auto fr=content_idx=sv1.size();
+		reply+=sv1;
+		mem_->remove_some(sv1.size());
 
-		tmp.resize(bufff.size());
-		buffer_copy(buffer(tmp), bufff.data());
-		bufff.consume(bufff.size());
-		reply += tmp;
 		if (reply.find("Transfer-Encoding: chunked\r\n") != string::npos && reply.find("\r\n0\r\n\r\n") != string::npos)
 		{
-			has_answer = 1;
+			//TODO 待支持chunked
+			has_answer = 0;
 		}
 
 		// 找到消息体大小
@@ -468,28 +466,29 @@ namespace harddns
 		{
 			co_return -1;
 		}
-		auto tocl = cl - (reply.size() - fr);
-		content_idx = fr;
-		auto cli = 0;
-		while (cli < tocl)
+		auto sv2=mem_->get_some();
+		reply+=sv2;
+		auto cli=sv2.size();
+		mem_->remove_some(sv2.size());
+		
+		while (cli < cl)
 		{
-			std::string bf2;
-			bf2.resize(2048);
-			auto bf2n = co_await socket_.async_read_some(buffer(bf2));
-			reply += bf2.substr(0, bf2n);
-			cli += bf2n;
+			auto bf2n = co_await mem_->async_load_some();
+			reply += bf2n;
+			cli += bf2n.size();
+			mem_->remove_some(bf2n.size());
 		}
 
-		if (reply.size() - fr == cl)
+		if (cli == cl)
 		{
 			std::cout << "读取数量正确" << std::endl;
 		}
 
 		std::cout << reply << std::endl;
 
-		auto ibb=0;
+		auto ibb = 0;
 		for (auto &&i : reply.substr(fr))
-			std::cout << (((unsigned int)i) & 255) << " "; //("<<ibb++<<")
+			std::cout << (((unsigned int)i) & 255) << " "; 
 		std::cout << std::endl;
 		auto r = parse_rfc8484(name, qtype, result, raw, reply, content_idx, cl);
 		// 	// else
@@ -691,7 +690,7 @@ namespace harddns
 				auto s = dns_reply.substr(idx, 4);
 				for (char8_t i : s)
 				{
-					dns_ans.rdata += std::to_string(((unsigned int)i)&255) + ".";
+					dns_ans.rdata += std::to_string(((unsigned int)i) & 255) + ".";
 				}
 				dns_ans.rdata.pop_back();
 				result[acnt++] = dns_ans;

@@ -5,6 +5,8 @@
 #include <asio/experimental/awaitable_operators.hpp>
 #include <asio/streambuf.hpp>
 
+#include <spdlog/spdlog.h>
+
 namespace hcpp
 {
 
@@ -127,19 +129,22 @@ namespace hcpp
         return std::string_view(i->data_.begin() + (read_index_ - i->begin_), i->data_.end());
     }
 
-    void socket_memory::remove_some(std::size_t n)
+    std::size_t socket_memory::remove_some(std::size_t n)
     {
         read_index_ += n;
+        decltype(read_index_) mn=0;
         for (auto i = buffs_.begin(); i != buffs_.end();)
         {
             if (read_index_ < i->begin_ + i->data_.size())
             {
                 break;
             }
+            mn += i->data_.size();
             auto old = i;
             i++;
             buffs_.erase(old);
         }
+        return mn;
     }
 
 } // namespace hcpp

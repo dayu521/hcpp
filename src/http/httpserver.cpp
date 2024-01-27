@@ -59,7 +59,7 @@ namespace hcpp
         {
             if (ib != cache_.end())
             {
-                spdlog::info("remove endpoint {}", svc);
+                spdlog::info("endpoint_cache : {} 端点无法继续服务,移除", svc);
                 std::unique_lock<std::shared_mutex> lock(shm_c_);
                 cache_.erase(ib);
             }
@@ -158,7 +158,7 @@ namespace hcpp
                 q.front()->close();
                 q.pop();
             }
-            spdlog::info("{},移除等待中的client完成",svc);
+            spdlog::info("endpoint_cache : {} 端点异常,移除等待中的client",svc);
         }
     }
 
@@ -243,9 +243,9 @@ namespace hcpp
         return m_->get_some();
     }
 
-    void service_worker::remove_some(std::size_t index)
+    std::size_t service_worker::remove_some(std::size_t index)
     {
-        m_->remove_some(index);
+        return m_->remove_some(index);
     }
 
     bool service_worker::ok()

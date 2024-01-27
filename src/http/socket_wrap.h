@@ -24,8 +24,8 @@ namespace hcpp
         virtual awaitable<std::string_view> async_load_until(const std::string &) override;
         virtual awaitable<void> async_write_all(std::string_view) override;
         virtual std::string_view get_some() override;
-        virtual void remove_some(std::size_t) override;
-        virtual void reset() override { read_index_ = write_index_ = 0; /*assert(buffs_.empty());*/}
+        virtual std::size_t remove_some(std::size_t) override;
+        virtual void reset() override { read_index_ = write_index_ = 0; buffs_.clear();}
 
         struct mem_block
         {
