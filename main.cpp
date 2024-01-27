@@ -107,7 +107,7 @@ int main(int argc, char **argv)
                 self(self, i);
             }
         };
-        create_thread(create_thread, 3);
+        // create_thread(create_thread, 3);
 
         co_spawn(io_context, listener(c->get_port()), [](std::exception_ptr eptr)
                  {

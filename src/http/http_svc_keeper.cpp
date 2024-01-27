@@ -1,4 +1,4 @@
-#include "httpserver.h"
+#include "http_svc_keeper.h"
 #include "socket_wrap.h"
 
 #include <mutex>
@@ -16,11 +16,11 @@
 
 namespace hcpp
 {
-    http_server::http_server(std::shared_ptr<endpoint_cache> cache, std::shared_ptr<slow_dns> dns) :slow_dns_(dns), endpoint_cache_(cache)
+    http_svc_keeper::http_svc_keeper(std::shared_ptr<svc_cache> cache, std::shared_ptr<slow_dns> dns) :slow_dns_(dns), endpoint_cache_(cache)
     {
     }
 
-    awaitable<std::shared_ptr<memory>> http_server::wait(std::string svc_host, std::string svc_service)
+    awaitable<std::shared_ptr<memory>> http_svc_keeper::wait(std::string svc_host, std::string svc_service)
     {
         auto svc_endpoint = co_await endpoint_cache_->get_endpoint(svc_host, svc_service, slow_dns_);
 
@@ -33,7 +33,7 @@ namespace hcpp
     using asio::detached;
     using asio::use_awaitable;
 
-    struct endpoint_cache::imp
+    struct svc_cache::imp
     {
         std::shared_mutex shm_c_;
         std::unordered_map<std::string, std::shared_ptr<memory>> cache_;
@@ -46,7 +46,7 @@ namespace hcpp
         bool remove_endpoint(std::string host, std::string service);
     };
 
-    awaitable<void> endpoint_cache::imp::get_endpoint(const std::string &host, const std::string &service, std::shared_ptr<hcpp::slow_dns> dns, std::shared_ptr<channel> c)
+    awaitable<void> svc_cache::imp::get_endpoint(const std::string &host, const std::string &service, std::shared_ptr<hcpp::slow_dns> dns, std::shared_ptr<channel> c)
     {
         auto svc = host + ":" + service;
         decltype(cache_)::iterator ib;
@@ -114,7 +114,7 @@ namespace hcpp
         }
     }
 
-    void endpoint_cache::imp::return_back(const std::string &host, const std::string &service, std::shared_ptr<memory> m)
+    void svc_cache::imp::return_back(const std::string &host, const std::string &service, std::shared_ptr<memory> m)
     {
         m->reset();
         auto svc = host + ":" + service;
@@ -162,7 +162,7 @@ namespace hcpp
         }
     }
 
-    bool endpoint_cache::imp::remove_endpoint(std::string host, std::string service)
+    bool svc_cache::imp::remove_endpoint(std::string host, std::string service)
     {
         auto svc = host + ":" + service;
         {
@@ -176,13 +176,13 @@ namespace hcpp
         return false;
     }
 
-    std::shared_ptr<endpoint_cache> endpoint_cache::get_instance()
+    std::shared_ptr<svc_cache> svc_cache::get_instance()
     {
-        static thread_local auto p = std::make_shared<endpoint_cache>();
+        static thread_local auto p = std::shared_ptr<svc_cache>(new svc_cache());
         return p;
     }
 
-    awaitable<std::shared_ptr<memory>> endpoint_cache::get_endpoint(std::string host, std::string service, std::shared_ptr<slow_dns> dns)
+    awaitable<std::shared_ptr<memory>> svc_cache::get_endpoint(std::string host, std::string service, std::shared_ptr<slow_dns> dns)
     {
         auto ex = co_await asio::this_coro::executor;
         auto ch = std::make_shared<channel>(ex, 1);
@@ -190,21 +190,21 @@ namespace hcpp
         co_return co_await ch->async_receive();
     }
 
-    void endpoint_cache::return_back(std::string host, std::string service, std::shared_ptr<memory> m)
+    void svc_cache::return_back(std::string host, std::string service, std::shared_ptr<memory> m)
     {
         imp_->return_back(host, service, m);
     }
 
-    bool endpoint_cache::remove_endpoint(std::string host, std::string service)
+    bool svc_cache::remove_endpoint(std::string host, std::string service)
     {
         return imp_->remove_endpoint(host, service);
     }
 
-    endpoint_cache::endpoint_cache() : imp_(std::make_shared<imp>())
+    svc_cache::svc_cache() : imp_(std::make_shared<imp>())
     {
     }
 
-    service_worker::service_worker(std::shared_ptr<memory> m, std::string host, std::string service, std::shared_ptr<endpoint_cache> endpoint_cache) : m_(m), host_(host), service_(service), endpoint_cache_(endpoint_cache)
+    service_worker::service_worker(std::shared_ptr<memory> m, std::string host, std::string service, std::shared_ptr<svc_cache> endpoint_cache) : m_(m), host_(host), service_(service), endpoint_cache_(endpoint_cache)
     {
     }
 

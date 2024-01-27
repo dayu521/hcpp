@@ -10,7 +10,7 @@ namespace hcpp
 
     awaitable<void> http_proxy(http_client client, std::shared_ptr<socket_channel> https_channel)
     {
-        http_server server(endpoint_cache::get_instance(), slow_dns::get_slow_dns());
+        http_svc_keeper server(svc_cache::get_instance(), slow_dns::get_slow_dns());
         while (true)
         {
             auto ss = client.get_memory();
@@ -79,18 +79,18 @@ namespace hcpp
         }
     }
 
-    using tcp_acceptor = use_awaitable_t<>::as_default_on_t<tcp::acceptor>;
+    using tcp_acceptor = use_awaitable_t<>::as_default_on_t<ip::tcp::acceptor>;
 
     awaitable<void> http_proxy::wait_http(uint16_t port)
     {
         auto executor = co_await this_coro::executor;
 
-        tcp_acceptor acceptor(executor, {tcp::v4(), port});
+        tcp_acceptor acceptor(executor, {ip::tcp::v4(), port});
         spdlog::debug("http_proxy监听端口:{}", acceptor.local_endpoint().port());
         for (;;)
         {
             auto socket = co_await acceptor.async_accept();
-            co_spawn(executor, proxy(hcpp::http_client(std::move(socket))), detached);
+            co_spawn(executor, proxy(http_client(std::move(socket))), detached);
         }
     }
 
@@ -110,13 +110,12 @@ namespace hcpp
         io_context executor;
 
         // 在当前协程运行
-        auto https_listener = [&executor, src]() -> awaitable<void>
+        auto https_listener = [&executor, c,this]() -> awaitable<void>
         {
             for (;;)
             {
                 // 放到单独的协程运行
-                // auto client = co_await src->async_receive();
-                co_spawn(executor, handle_tls_client(co_await src->async_receive()), detached);
+                // co_spawn(executor, proxy(http_client(co_await c->async_receive())), detached);
             }
         };
 

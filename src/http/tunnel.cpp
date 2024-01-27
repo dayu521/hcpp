@@ -92,7 +92,7 @@ namespace hcpp
 
     http_tunnel::~http_tunnel()
     {
-        spdlog::info("{} http_tunnel结束,共发送 {}({}kb) 接收 {}({}kb)", host_,w_n_, w_n_ / 1024, r_n_, r_n_ / 1024);
+        spdlog::info("{} http_tunnel结束,共发送 {}({}kb) 接收 {}({}kb)", host_, w_n_, w_n_ / 1024, r_n_, r_n_ / 1024);
     }
 
     awaitable<bool> http_tunnel::wait(std::shared_ptr<slow_dns> dns)
@@ -120,16 +120,32 @@ namespace hcpp
     {
         while (self->ok())
         {
-            co_await self->write();
+            try
+            {
+                co_await self->write();
+            }
+            catch (const std::exception &e)
+            {
+                break;
+            }
         }
+        co_await self->close_s();
     }
 
     awaitable<void> http_tunnel::bind_read(std::shared_ptr<http_tunnel> self)
     {
         while (self->ok())
         {
-            co_await self->read();
+            try
+            {
+                co_await self->read();
+            }
+            catch (const std::exception &e)
+            {
+                break;
+            }
         }
+        co_await self->close_c();
     }
 
     awaitable<void> http_tunnel::read()
@@ -143,13 +159,14 @@ namespace hcpp
             if (data.size() == 0)
             {
                 spdlog::debug("服务端关闭连接");
+                co_await c_->async_write_some("");
                 read_ok_ = false;
             }
         }
         catch (const std::exception &e)
         {
             read_ok_ = false;
-            throw e;
+            // throw e;
         }
     }
 
@@ -164,13 +181,14 @@ namespace hcpp
             if (data.size() == 0)
             {
                 spdlog::debug("客户端关闭连接");
+                co_await s_->async_write_some("");
                 write_ok_ = false;
             }
         }
         catch (const std::exception &e)
         {
             write_ok_ = false;
-            throw e;
+            // throw e;
         }
     }
 
@@ -185,6 +203,16 @@ namespace hcpp
         auto e = co_await this_coro::executor;
         co_spawn(e, http_tunnel::bind_read(ts), detached);
         co_spawn(e, http_tunnel::bind_write(ts), detached);
+    }
+
+    awaitable<void> http_tunnel::close_c()
+    {
+        co_await c_->async_write_all("");
+    }
+
+    awaitable<void> http_tunnel::close_s()
+    {
+        co_await s_->async_write_all("");
     }
 
 } // namespace hcpp

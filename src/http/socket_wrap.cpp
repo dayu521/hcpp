@@ -52,6 +52,11 @@ namespace hcpp
 
     awaitable<std::size_t> hcpp::socket_memory::async_write_some(std::string_view s)
     {
+        if (s.empty())
+        {
+            write_ok_ = false;
+            sock_->shutdown(tcp_socket::shutdown_send);
+        }
         std::size_t n = 0;
         try
         {
@@ -107,6 +112,11 @@ namespace hcpp
 
     awaitable<void> hcpp::socket_memory::async_write_all(std::string_view s)
     {
+        if (s.empty())
+        {
+            write_ok_ = false;
+            sock_->shutdown(tcp_socket::shutdown_send);
+        }
         try
         {
             co_await async_write(*sock_, buffer(s, s.size()));
@@ -132,7 +142,7 @@ namespace hcpp
     std::size_t socket_memory::remove_some(std::size_t n)
     {
         read_index_ += n;
-        decltype(read_index_) mn=0;
+        decltype(read_index_) mn = 0;
         for (auto i = buffs_.begin(); i != buffs_.end();)
         {
             if (read_index_ < i->begin_ + i->data_.size())

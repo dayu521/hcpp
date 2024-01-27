@@ -2,7 +2,7 @@
 #define SRC_HTTP_HTTPCLIENT
 #include "memory.h"
 #include "socket_wrap.h"
-#include "httpbase.h"
+#include "httpmsg.h"
 
 #include <optional>
 

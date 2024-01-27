@@ -2,7 +2,7 @@
 #define SRC_HTTP_TUNNEL2
 
 #include "httpclient.h"
-#include "httpserver.h"
+#include "http_svc_keeper.h"
 #include "memory.h"
 #include "dns.h"
 
@@ -22,6 +22,8 @@ namespace hcpp
 
         awaitable<void> read();
         awaitable<void> write();
+        awaitable<void> close_c();
+        awaitable<void> close_s();
 
         bool ok(){return read_ok_&&write_ok_;}
 
