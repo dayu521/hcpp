@@ -1,10 +1,12 @@
-#include "server.h"
+#include "mitm_svc.h"
+#include "http/tunnel.h"
 
 #include <thread>
 
 #include <spdlog/spdlog.h>
 #include <asio/buffer.hpp>
 #include <asio/bind_executor.hpp>
+#include "mitm_svc.h"
 
 namespace hcpp
 {
@@ -22,7 +24,7 @@ namespace hcpp
             {
                 // 放到单独的协程运行
                 // auto client = co_await src->async_receive();
-                co_spawn(executor, handle_tls_client(co_await src->async_receive()), detached);
+                // co_spawn(executor, handle_tls_client(co_await src->async_receive()), detached);
             }
         };
 
@@ -79,6 +81,14 @@ namespace hcpp
         spdlog::debug("收到https消息\n{}", bf.substr(0, n));
         co_await async_write(cli, "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 17\r\n\r\nHello,from https!"_buf);
         co_return;
+    }
+
+    mitm_svc::mitm_svc():http_svc_keeper(make_threadlocal_svc_cache<mitm_svc>(),slow_dns::get_slow_dns())
+    {
+    }
+    awaitable<std::shared_ptr<memory>> ssl_mem_factory::create(std::string host, std::string service)
+    {
+        return awaitable<std::shared_ptr<memory>>();
     }
 
 } // namespace hcpp

@@ -2,15 +2,15 @@
 #include "dns.h"
 #include "http/httpclient.h"
 #include "http/tunnel.h"
+#include "http/http_svc_keeper.h"
 
 #include <spdlog/spdlog.h>
 
 namespace hcpp
 {
 
-    awaitable<void> http_do(http_client client, std::shared_ptr<tunnel> t)
+    awaitable<void> http_do(http_client client, std::unique_ptr<service_keeper> sk)
     {
-        http_svc_keeper server(svc_cache::get_instance(), slow_dns::get_slow_dns());
         while (true)
         {
             auto ss = client.get_memory();
@@ -26,6 +26,7 @@ namespace hcpp
                 {
                     if (req.method_ == http_request::CONNECT)
                     {
+                        auto t= co_await sk->wait_tunnel(req.host_,req.port_);
                         co_await t->make_tunnel(ss, req.host_, req.port_);
                         // co_await socket_tunnel::make_tunnel(ss, req.host_, req.port_, hcpp::slow_dns::get_slow_dns());
                         co_await ss->async_write_all("HTTP/1.1 200 OK\r\n\r\n");
@@ -43,7 +44,7 @@ namespace hcpp
                         }
                         req_line += "\r\n";
 
-                        auto w = co_await server.wait(req.host_, req.port_);
+                        auto w = co_await sk->wait(req.host_, req.port_);
 
                         co_await w->async_write_all(req_line);
                         co_await req.transfer_msg_body(ss, w);
@@ -91,13 +92,14 @@ namespace hcpp
         for (;;)
         {
             auto socket = co_await acceptor.async_accept();
-            co_spawn(executor, http_do(http_client(std::move(socket)), std::make_shared<hcpp::socket_tunnel>()), detached);
+            auto sk=std::make_unique<http_svc_keeper>(make_threadlocal_svc_cache(),slow_dns::get_slow_dns());
+            co_spawn(executor, http_do(http_client(std::move(socket)), std::move(sk)), detached);
         }
     }
 
-    void httpserver::attach(http_worker w)
+    void httpserver::attach_tunnel(tunnel_advice w)
     {
-        w(https_channel);
+        // tunnel_advice_=w;
         // co_spawn(https_channel->get_executor(), mimt->wait_http(https_channel), detached);
     }
 
@@ -112,6 +114,7 @@ namespace hcpp
             for (;;)
             {
                 // 放到单独的协程运行
+                //  auto client = co_await src->async_receive();
                 // co_spawn(executor, http_service(http_client(std::move(socket)), std::make_shared<hcpp::socket_tunnel>()), detached);
             }
         };

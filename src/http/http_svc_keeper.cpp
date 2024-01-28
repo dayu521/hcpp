@@ -16,7 +16,7 @@
 
 namespace hcpp
 {
-    http_svc_keeper::http_svc_keeper(std::shared_ptr<svc_cache> cache, std::shared_ptr<slow_dns> dns) :slow_dns_(dns), endpoint_cache_(cache)
+    http_svc_keeper::http_svc_keeper(std::shared_ptr<svc_cache> cache, std::shared_ptr<slow_dns> dns) : slow_dns_(dns), endpoint_cache_(cache)
     {
     }
 
@@ -25,6 +25,11 @@ namespace hcpp
         auto svc_endpoint = co_await endpoint_cache_->get_endpoint(svc_host, svc_service, slow_dns_);
 
         co_return std::make_shared<service_worker>(svc_endpoint, svc_host, svc_service, endpoint_cache_);
+    }
+
+    awaitable<std::shared_ptr<tunnel>> http_svc_keeper::wait_tunnel(std::string svc_host, std::string svc_service)
+    {
+        co_return std::make_shared<socket_tunnel>();
     }
 
     using asio::experimental::concurrent_channel;
@@ -41,12 +46,23 @@ namespace hcpp
         std::shared_mutex shm_rq_;
         std::unordered_map<std::string, std::queue<std::shared_ptr<channel>>> request_queue_;
 
+        std::unique_ptr<mem_factory> mem_factory_;
+
         awaitable<void> get_endpoint(const std::string &host, const std::string &service, std::shared_ptr<hcpp::slow_dns> dns, std::shared_ptr<channel> c);
         void return_back(const std::string &host, const std::string &service, std::shared_ptr<memory> m);
         bool remove_endpoint(std::string host, std::string service);
     };
 
-    awaitable<void> svc_cache::imp::get_endpoint(const std::string &host, const std::string &service, std::shared_ptr<hcpp::slow_dns> dns, std::shared_ptr<channel> c)
+    class failed_mem : public simple_mem
+    {
+        virtual bool ok()
+        {
+            return false;
+        }
+    };
+
+    awaitable<void>
+    svc_cache::imp::get_endpoint(const std::string &host, const std::string &service, std::shared_ptr<hcpp::slow_dns> dns, std::shared_ptr<channel> c)
     {
         auto svc = host + ":" + service;
         decltype(cache_)::iterator ib;
@@ -63,22 +79,14 @@ namespace hcpp
                 std::unique_lock<std::shared_mutex> lock(shm_c_);
                 cache_.erase(ib);
             }
-            auto rrs = dns->resolve_cache({host, service});
-            if (!rrs)
-            {
-                rrs.emplace(co_await dns->resolve({host, service}));
-            }
 
-            auto e = c->get_executor();
-            tcp_socket sock(e);
-            if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
+            auto v = co_await mem_factory_->create(host, service);
+            if (!v)
             {
-                spdlog::info("连接远程出错 -> {}", svc);
-                hcpp::slow_dns::get_slow_dns()->remove_svc({host, service}, remote_endpoint.address().to_string());
                 c->close();
-                // FIXME 失败也加入,它会由于写入失败而清除.但这并不好
+                return_back(host,service,std::make_shared<failed_mem>());
+                co_return;
             }
-            auto v = std::make_shared<socket_memory>(std::move(sock));
             {
                 std::unique_lock<std::shared_mutex> lock(shm_c_);
                 // 插入成功失败都无所谓
@@ -149,7 +157,7 @@ namespace hcpp
                 std::unique_lock<std::shared_mutex> lock(shm_rq_);
                 if (auto ib = request_queue_.find(svc); ib != request_queue_.end())
                 {
-                    q=std::move(ib->second);
+                    q = std::move(ib->second);
                     request_queue_.erase(ib);
                 }
             }
@@ -158,7 +166,7 @@ namespace hcpp
                 q.front()->close();
                 q.pop();
             }
-            spdlog::info("endpoint_cache : {} 端点异常,移除等待中的client",svc);
+            spdlog::info("endpoint_cache : {} 端点异常,移除等待中的client", svc);
         }
     }
 
@@ -174,12 +182,6 @@ namespace hcpp
             }
         }
         return false;
-    }
-
-    std::shared_ptr<svc_cache> svc_cache::get_instance()
-    {
-        static thread_local auto p = std::shared_ptr<svc_cache>(new svc_cache());
-        return p;
     }
 
     awaitable<std::shared_ptr<memory>> svc_cache::get_endpoint(std::string host, std::string service, std::shared_ptr<slow_dns> dns)
@@ -202,6 +204,12 @@ namespace hcpp
 
     svc_cache::svc_cache() : imp_(std::make_shared<imp>())
     {
+    }
+
+    svc_cache::svc_cache(std::unique_ptr<mem_factory> mem_factory) : imp_(std::make_shared<imp>())
+    {
+        imp_->mem_factory_=std::move(mem_factory);
+        spdlog::warn("初始化svc_cache");
     }
 
     service_worker::service_worker(std::shared_ptr<memory> m, std::string host, std::string service, std::shared_ptr<svc_cache> endpoint_cache) : m_(m), host_(host), service_(service), endpoint_cache_(endpoint_cache)
@@ -290,6 +298,28 @@ namespace hcpp
     awaitable<bool> msg_body::parser_msg_body(http_response &)
     {
         co_return false;
+    }
+
+    awaitable<std::shared_ptr<memory>> socket_mem_factory::create(std::string host, std::string service)
+    {
+        auto svc = host + ":" + service;
+        auto dns = slow_dns::get_slow_dns();
+        auto rrs = dns->resolve_cache({host, service});
+        if (!rrs)
+        {
+            rrs.emplace(co_await dns->resolve({host, service}));
+        }
+
+        auto e = co_await this_coro::executor;
+        tcp_socket sock(e);
+        if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
+        {
+            spdlog::info("连接远程出错 -> {}", svc);
+            hcpp::slow_dns::get_slow_dns()->remove_svc({host, service}, remote_endpoint.address().to_string());
+            co_return std::shared_ptr<memory>{};
+        }
+        auto v = std::make_shared<socket_memory>(std::move(sock));
+        co_return v;
     }
 
 } // namespace hcpp

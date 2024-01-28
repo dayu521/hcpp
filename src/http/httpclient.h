@@ -44,10 +44,11 @@ namespace hcpp
 
     public:
         http_client(tcp_socket &&sock);
+        http_client(std::shared_ptr<socket_memory> mem):mem_(mem){}
 
         std::shared_ptr<memory> get_memory(){return mem_;}
 
-        http_request make_request() const;
+        virtual http_request make_request() const;
 
     private:
         std::shared_ptr<socket_memory> mem_;

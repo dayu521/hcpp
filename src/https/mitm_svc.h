@@ -1,9 +1,11 @@
-#ifndef SRC_HTTPS_SERVER
-#define SRC_HTTPS_SERVER
+#ifndef SRC_HTTPS_MIMT_SVC
+#define SRC_HTTPS_MIMT_SVC
 
 #include "asio_coroutine_net.h"
 #include "dns.h"
 #include "http/http_svc_keeper.h"
+#include "hmemory.h"
+#include "http/tunnel.h"
 
 #include <string>
 
@@ -19,7 +21,7 @@ namespace hcpp
 
     struct tls_client;
     // HACK 好像只能支持发送存在默认构造函数的对象.所以不能使用std::unique_ptr
-    using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<tls_client>)>>;
+    // using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<tls_client>)>>;
 
     struct tls_client
     {
@@ -34,10 +36,25 @@ namespace hcpp
 
     awaitable<void> https_listen(std::shared_ptr<socket_channel> src);
 
-    class https_server : public http_svc_keeper
+    class ssl_mem_factory : public mem_factory
     {
+    public:
+        awaitable<std::shared_ptr<memory>> create(std::string host, std::string service) override;
+    };
 
+    class mitm_svc : public http_svc_keeper
+    {
+    public:
+        static std::unique_ptr<ssl_mem_factory> make_mem_factory()
+        {
+            return std::make_unique<ssl_mem_factory>();
+        }
+
+    public:
+
+    public:
+        mitm_svc();
     };
 } // namespace hcpp
 
-#endif /* SRC_HTTPS_SERVER */
+#endif /* SRC_HTTPS_MIMT_SVC */

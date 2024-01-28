@@ -1,16 +1,16 @@
 #ifndef SRC_HTTPSERVER
 #define SRC_HTTPSERVER
 
-#include "https/server.h"
+#include "https/mitm_svc.h"
 #include "http/httpclient.h"
-#include "http/http_svc_keeper.h"
 #include "http/tunnel.h"
+#include "http/service_keeper.h"
 
 #include <asio/ip/tcp.hpp>
 #include <asio/use_awaitable.hpp>
 #include <asio/experimental/concurrent_channel.hpp>
 
-#include <functional> 
+#include <functional>
 
 namespace hcpp
 {
@@ -18,20 +18,30 @@ namespace hcpp
     using asio::awaitable;
     using namespace asio::experimental;
 
-    using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<tls_client>)>>;
+    // using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<tls_client>)>>;
 
-    awaitable<void> http_do(http_client client, std::shared_ptr<tunnel> t);
+    awaitable<void> http_do(http_client client, std::unique_ptr<service_keeper> sk);
 
     class httpserver
     {
     public:
         awaitable<void> wait_http(uint16_t port);
 
-        using http_worker=std::function<void(std::shared_ptr<socket_channel>)>;
-        void attach(http_worker w);
+        using tunnel_advice = std::function<std::shared_ptr<tunnel>(std::shared_ptr<tunnel>)>;
+
+        // TODO 让mitm替换掉tunnel实现,从而拦截默认tunnel
+        void attach_tunnel(tunnel_advice w);
 
     private:
-        std::shared_ptr<socket_channel> https_channel;
+        std::unique_ptr<sk_factory> tunnel_advice_;
+    };
+
+    class sk_factory_imp : public sk_factory
+    {
+    public:
+        virtual std::shared_ptr<service_keeper> create() override;
+
+    private:
     };
 
     // struct mimt_client

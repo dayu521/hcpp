@@ -1,15 +1,18 @@
 #ifndef SRC_HTTP_HTTP_SVC_KEEPER
 #define SRC_HTTP_HTTP_SVC_KEEPER
-#include "memory.h"
+#include "hmemory.h"
 #include "dns.h"
 #include "httpmsg.h"
 #include "socket_wrap.h"
 #include "tunnel.h"
+#include "service_keeper.h"
 
 #include <optional>
 #include <shared_mutex>
 #include <unordered_map>
 #include <functional>
+
+#include <spdlog/spdlog.h>
 
 namespace hcpp
 {
@@ -36,8 +39,6 @@ namespace hcpp
     };
 
     class svc_cache;
-
-    class http_svc_keeper;
 
     class service_worker : public memory
     {
@@ -71,15 +72,26 @@ namespace hcpp
         std::shared_ptr<svc_cache> endpoint_cache_;
     };
 
-    class http_svc_keeper
+    class socket_mem_factory : public mem_factory
     {
+    public:
+        awaitable<std::shared_ptr<memory>> create(std::string host, std::string service) override;
+    };
+
+    class http_svc_keeper : public service_keeper
+    {
+    public:
+        static std::unique_ptr<socket_mem_factory> make_mem_factory()
+        {
+            return std::make_unique<socket_mem_factory>();
+        }
 
     public:
         http_svc_keeper(std::shared_ptr<svc_cache> cache, std::shared_ptr<slow_dns> dns);
 
-        awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service);
+        awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service) override;
 
-        awaitable<std::shared_ptr<tunnel>> wait_tunnel(std::string svc_host, std::string svc_service);
+        awaitable<std::shared_ptr<tunnel>> wait_tunnel(std::string svc_host, std::string svc_service) override;
 
     private:
         std::shared_ptr<slow_dns> slow_dns_;
@@ -89,20 +101,27 @@ namespace hcpp
     class svc_cache
     {
     public:
-        static std::shared_ptr<svc_cache> get_instance();
-
-    public:
         awaitable<std::shared_ptr<memory>> get_endpoint(std::string host, std::string service, std::shared_ptr<slow_dns> dns);
         void return_back(std::string host, std::string service, std::shared_ptr<memory> m);
         bool remove_endpoint(std::string host, std::string service);
 
-    private:
+        void set_mem_factory(std::unique_ptr<mem_factory> f);
+
+    public:
         svc_cache();
+        svc_cache(std::unique_ptr<mem_factory> mem_factory);
 
     private:
         struct imp;
         std::shared_ptr<imp> imp_;
     };
+
+    template <typename T = http_svc_keeper>
+    inline std::shared_ptr<svc_cache> make_threadlocal_svc_cache()
+    {
+        static thread_local auto p = std::shared_ptr<svc_cache>(new svc_cache(T::make_mem_factory()));
+        return p;
+    }
 
 } // namespace hcpp
 

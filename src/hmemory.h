@@ -39,6 +39,13 @@ namespace hcpp
         bool write_ok_ = true;
     };
 
+    class mem_factory
+    {
+    public:
+        virtual awaitable<std::shared_ptr<memory>> create(std::string host, std::string service) = 0;
+        virtual ~mem_factory() = default;
+    };
+
     class simple_mem : public memory
     {
     private:

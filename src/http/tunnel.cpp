@@ -166,4 +166,11 @@ namespace hcpp
         co_spawn(e, bind_write(self), detached);
     }
 
+    awaitable<void> channel_tunnel::make_tunnel(std::shared_ptr<memory> m, std::string host, std::string service)
+    {
+        // http_client h(host,service);
+
+        // co_await channel_->async_send(asio::error_code{}, h);
+    }
+
 } // namespace hcpp
