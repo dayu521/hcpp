@@ -4,6 +4,7 @@
 #include "dns.h"
 #include "httpmsg.h"
 #include "socket_wrap.h"
+#include "tunnel.h"
 
 #include <optional>
 #include <shared_mutex>
@@ -77,6 +78,8 @@ namespace hcpp
         http_svc_keeper(std::shared_ptr<svc_cache> cache, std::shared_ptr<slow_dns> dns);
 
         awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service);
+
+        awaitable<std::shared_ptr<tunnel>> wait_tunnel(std::string svc_host, std::string svc_service);
 
     private:
         std::shared_ptr<slow_dns> slow_dns_;

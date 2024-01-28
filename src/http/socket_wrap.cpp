@@ -4,6 +4,7 @@
 #include <asio/write.hpp>
 #include <asio/experimental/awaitable_operators.hpp>
 #include <asio/streambuf.hpp>
+#include <asio/as_tuple.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -27,21 +28,13 @@ namespace hcpp
         std::string r{};
         r.resize(max_n);
         r.reserve(max_n);
-        std::size_t n = 0;
 
-        try
-        {
-            n = co_await sock_->async_read_some(buffer(r, max_n));
-        }
-        catch (const std::exception &e)
-        {
-            read_ok_ = false;
-            throw e;
-        }
+        auto [e, n] = co_await sock_->async_read_some(buffer(r, max_n),as_tuple(use_awaitable));
 
         if (n == 0)
         {
             read_ok_ = false;
+            sock_->shutdown(tcp_socket::shutdown_receive);
             co_return "";
         }
         write_index_ += n;
@@ -56,18 +49,11 @@ namespace hcpp
         {
             write_ok_ = false;
             sock_->shutdown(tcp_socket::shutdown_send);
+            co_return 0;
         }
-        std::size_t n = 0;
-        try
-        {
-            // HACK 不需要放到缓存
-            n = co_await sock_->async_write_some(buffer(s));
-        }
-        catch (const std::exception &e)
-        {
-            write_ok_ = false;
-            throw e;
-        }
+
+        // HACK 不需要放到缓存
+        auto [e, n] = co_await sock_->async_write_some(buffer(s),as_tuple(use_awaitable));
 
         co_return n;
     }
@@ -85,19 +71,12 @@ namespace hcpp
         std::string r{};
         streambuf buff;
 
-        std::size_t n = 0;
-        try
-        {
-            n = co_await asio::async_read_until(*sock_, buff, d);
-        }
-        catch (const std::exception &e)
-        {
-            read_ok_ = false;
-            throw e;
-        }
+        auto [e, n] = co_await asio::async_read_until(*sock_, buff, d,as_tuple(use_awaitable));
+
         if (n == 0)
         {
             read_ok_ = false;
+            sock_->shutdown(tcp_socket::shutdown_receive);
             co_return "";
         }
         r.resize(buff.size());
@@ -116,16 +95,10 @@ namespace hcpp
         {
             write_ok_ = false;
             sock_->shutdown(tcp_socket::shutdown_send);
+            co_return;
         }
-        try
-        {
-            co_await async_write(*sock_, buffer(s, s.size()));
-        }
-        catch (const std::exception &e)
-        {
-            write_ok_ = false;
-            throw e;
-        }
+
+        auto [e, n] = co_await async_write(*sock_, buffer(s, s.size()),as_tuple(use_awaitable));
     }
 
     std::string_view socket_memory::get_some()

@@ -12,28 +12,27 @@
 
 namespace hcpp
 {
-    class http_tunnel
+    class tunnel
     {
     public:
-        http_tunnel(std::shared_ptr<memory> m, std::string host, std::string service);
-        ~http_tunnel();
+        virtual awaitable<void> make_tunnel(std::shared_ptr<memory> m, std::string host, std::string service) = 0;
+        virtual ~tunnel() = default;
+    };
 
-        awaitable<bool> wait(std::shared_ptr<slow_dns> dns);
-
-        awaitable<void> read();
-        awaitable<void> write();
-        awaitable<void> close_c();
-        awaitable<void> close_s();
-
-        bool ok(){return read_ok_&&write_ok_;}
+    class socket_tunnel : public tunnel, public std::enable_shared_from_this<socket_tunnel>
+    {
+    public:
+        virtual awaitable<void> make_tunnel(std::shared_ptr<memory> m, std::string host, std::string service);
 
     public:
-        static awaitable<void> bind_read(std::shared_ptr<http_tunnel> self);
-        static awaitable<void> bind_write(std::shared_ptr<http_tunnel> self);
-        static awaitable<void> make_tunnel(std::shared_ptr<memory> m, std::string host, std::string service,std::shared_ptr<slow_dns> dns);
+        socket_tunnel();
+        ~socket_tunnel();
+        awaitable<void> read();
+        awaitable<void> write();
+        bool ok() { return c_->ok() && s_->ok(); }
 
     private:
-
+        awaitable<bool> wait(std::shared_ptr<slow_dns> dns);
 
     private:
         std::shared_ptr<memory> c_;
@@ -42,9 +41,6 @@ namespace hcpp
         std::string service_;
         std::size_t r_n_ = 0;
         std::size_t w_n_ = 0;
-
-        bool read_ok_=true;
-        bool write_ok_=true;
     };
 
 } // namespace hcpp

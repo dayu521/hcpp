@@ -1,13 +1,16 @@
-#ifndef SRC_PROXY
-#define SRC_PROXY
+#ifndef SRC_HTTPSERVER
+#define SRC_HTTPSERVER
 
 #include "https/server.h"
 #include "http/httpclient.h"
 #include "http/http_svc_keeper.h"
+#include "http/tunnel.h"
 
 #include <asio/ip/tcp.hpp>
 #include <asio/use_awaitable.hpp>
 #include <asio/experimental/concurrent_channel.hpp>
+
+#include <functional> 
 
 namespace hcpp
 {
@@ -17,18 +20,15 @@ namespace hcpp
 
     using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<tls_client>)>>;
 
-    awaitable<void> http_proxy(http_client client, std::shared_ptr<socket_channel> https_channel);
+    awaitable<void> http_do(http_client client, std::shared_ptr<tunnel> t);
 
-    class mimt_https_proxy;
-
-    class http_proxy
+    class httpserver
     {
     public:
         awaitable<void> wait_http(uint16_t port);
-        void attach(std::shared_ptr<mimt_https_proxy> mimt);
 
-    private:
-        awaitable<void> proxy(http_client client);
+        using http_worker=std::function<void(std::shared_ptr<socket_channel>)>;
+        void attach(http_worker w);
 
     private:
         std::shared_ptr<socket_channel> https_channel;
@@ -45,14 +45,13 @@ namespace hcpp
     //     tls_client(tcp_socket socket) : socket_(std::move(socket)) {}
     // };
 
-    class mimt_https_proxy
+    class mimt_https_server
     {
     public:
         awaitable<void> wait_http(std::shared_ptr<socket_channel> c);
         awaitable<void> wait(uint16_t port);
-        awaitable<void> proxy(http_client client);
     };
 
 } // namespace hcpp
 
-#endif /* SRC_PROXY */
+#endif /* SRC_HTTPSERVER */

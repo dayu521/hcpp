@@ -13,17 +13,14 @@
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
 #include <asio/io_context.hpp>
-#include <asio/ip/tcp.hpp>
 #include <asio/signal_set.hpp>
-#include <cstdio>
-#include <asio/use_awaitable.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/cfg/env.h>
 
 #include <thread>
 
-#include "proxy.h"
+#include "httpserver.h"
 #include "dns.h"
 #include "config.h"
 
@@ -36,23 +33,6 @@ using tcp_acceptor = use_awaitable_t<>::as_default_on_t<tcp::acceptor>;
 using tcp_socket = use_awaitable_t<>::as_default_on_t<tcp::socket>;
 namespace this_coro = asio::this_coro;
 
-awaitable<void> listener(uint16_t port)
-{
-    auto executor = co_await this_coro::executor;
-
-    auto cc = std::make_shared<hcpp::socket_channel>(executor, 10);
-
-    // co_spawn(executor,hcpp::https_listen(cc),detached);
-
-    tcp_acceptor acceptor(executor, {tcp::v4(), port});
-    spdlog::debug("服务器监听端口:{}", acceptor.local_endpoint().port());
-    for (;;)
-    {
-        auto socket = co_await acceptor.async_accept();
-        co_spawn(executor, http_proxy(hcpp::http_client(std::move(socket)), cc), detached);
-    }
-}
-
 int main(int argc, char **argv)
 {
     try
@@ -64,13 +44,6 @@ int main(int argc, char **argv)
         spdlog::set_pattern("\033[1;37m[%Y-%m-%d %H:%M:%S.%e] [%t] [%^%l%$]\033[0m %v");
         spdlog::debug("hcpp launch");
 
-        asio::io_context io_context;
-
-        asio::signal_set signals(io_context, SIGINT, SIGTERM);
-        signals.async_wait([&](auto, auto)
-                           {
-                            io_context.stop(); });
-
         std::string cfg_path = hcpp::config::CONFIG_DEFAULT_PATH;
         if (argc == 2)
         {
@@ -79,54 +52,51 @@ int main(int argc, char **argv)
         auto c = hcpp::config::get_config(cfg_path);
         c->load_host_mapping(hcpp::slow_dns::get_slow_dns());
         c->load_dns_provider(hcpp::slow_dns::get_slow_dns());
-        c->save_callback([sd=hcpp::slow_dns::get_slow_dns()](auto &&cs)
+        c->save_callback([sd = hcpp::slow_dns::get_slow_dns()](auto &&cs)
                          { sd->save_hm(cs.hm_); });
+
+        asio::io_context io_context;
+
+        asio::signal_set signals(io_context, SIGINT, SIGTERM);
+        signals.async_wait([&](auto, auto)
+                           { io_context.stop(); });
+
+        hcpp::httpserver hs;
+        hcpp::mimt_https_server mhs;
+
+        hs.attach([&mhs, &io_context](auto &&c)
+                  {
+                      // co_spawn(io_context,mhs.wait_http(c),detached);
+                  });
+
+        co_spawn(io_context, hs.wait_http(c->get_port()), detached);
 
         auto create_thread = [&io_context](auto self, int i) -> void
         {
             if (i > 0)
             {
-                auto service = [&io_context]()
+                std::jthread j(self, self, i - 1);
+                while (!io_context.stopped())
                 {
-                    while (!io_context.stopped())
+                    try
                     {
-                        try
-                        {
-                            io_context.run();
-                        }
-                        catch (const std::exception &e)
-                        {
-                            spdlog::error(e.what());
-                        }
+                        io_context.run();
                     }
-                    spdlog::debug("线程退出成功");
-                };
-                std::thread t(service);
-                t.detach();
-                i--;
-                self(self, i);
+                    catch (const std::exception &e)
+                    {
+                        spdlog::error(e.what());
+                    }
+                }
+                spdlog::debug("线程退出成功");
             }
         };
-        // create_thread(create_thread, 3);
-
-        co_spawn(io_context, listener(c->get_port()), [](std::exception_ptr eptr)
-                 {
-                     // try
-                     // {
-                     if (eptr)
-                         std::rethrow_exception(eptr);
-                     // }
-                     // catch(const std::exception& e)
-                     // {
-                     //     std::cout << "Caught exception: '" << e.what() << "'\n";
-                     //     io_context.stop();
-                     // }
-                 });
+        // 为了防止对象在多线程情况下销毁出问题
+        std::jthread t(create_thread, create_thread, 3);
 
         io_context.run();
     }
     catch (std::exception &e)
     {
-        std::printf("Exception: %s\n", e.what());
+        spdlog::error(e.what());
     }
 }

@@ -158,4 +158,9 @@ namespace hcpp
     {
     }
 
+    http_request http_client::make_request() const
+    {
+        return {};
+    }
+
 } // namespace hcpp

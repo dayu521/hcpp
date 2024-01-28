@@ -47,6 +47,8 @@ namespace hcpp
 
         std::shared_ptr<memory> get_memory(){return mem_;}
 
+        http_request make_request() const;
+
     private:
         std::shared_ptr<socket_memory> mem_;
     };

@@ -1,4 +1,4 @@
-#include "proxy.h"
+#include "httpserver.h"
 #include "dns.h"
 #include "http/httpclient.h"
 #include "http/tunnel.h"
@@ -8,7 +8,7 @@
 namespace hcpp
 {
 
-    awaitable<void> http_proxy(http_client client, std::shared_ptr<socket_channel> https_channel)
+    awaitable<void> http_do(http_client client, std::shared_ptr<tunnel> t)
     {
         http_svc_keeper server(svc_cache::get_instance(), slow_dns::get_slow_dns());
         while (true)
@@ -17,7 +17,7 @@ namespace hcpp
             ss->reset();
             co_await ss->wait();
 
-            http_request req;
+            auto req = client.make_request();
             auto p1 = req.get_first_parser(ss);
 
             if (auto p2 = co_await p1.parser_reuqest_line(req); p2)
@@ -26,7 +26,8 @@ namespace hcpp
                 {
                     if (req.method_ == http_request::CONNECT)
                     {
-                        co_await http_tunnel::make_tunnel(ss, req.host_, req.port_, hcpp::slow_dns::get_slow_dns());
+                        co_await t->make_tunnel(ss, req.host_, req.port_);
+                        // co_await socket_tunnel::make_tunnel(ss, req.host_, req.port_, hcpp::slow_dns::get_slow_dns());
                         co_await ss->async_write_all("HTTP/1.1 200 OK\r\n\r\n");
                         spdlog::debug("建立http tunnel {}", req.host_);
                         co_return;
@@ -81,41 +82,37 @@ namespace hcpp
 
     using tcp_acceptor = use_awaitable_t<>::as_default_on_t<ip::tcp::acceptor>;
 
-    awaitable<void> http_proxy::wait_http(uint16_t port)
+    awaitable<void> httpserver::wait_http(uint16_t port)
     {
         auto executor = co_await this_coro::executor;
 
         tcp_acceptor acceptor(executor, {ip::tcp::v4(), port});
-        spdlog::debug("http_proxy监听端口:{}", acceptor.local_endpoint().port());
+        spdlog::debug("http_server监听端口:{}", acceptor.local_endpoint().port());
         for (;;)
         {
             auto socket = co_await acceptor.async_accept();
-            co_spawn(executor, proxy(http_client(std::move(socket))), detached);
+            co_spawn(executor, http_do(http_client(std::move(socket)), std::make_shared<hcpp::socket_tunnel>()), detached);
         }
     }
 
-    void http_proxy::attach(std::shared_ptr<mimt_https_proxy> mimt)
+    void httpserver::attach(http_worker w)
     {
-        co_spawn(https_channel->get_executor(), mimt->wait_http(https_channel), detached);
+        w(https_channel);
+        // co_spawn(https_channel->get_executor(), mimt->wait_http(https_channel), detached);
     }
 
-    awaitable<void> http_proxy::proxy(http_client client)
+    awaitable<void> mimt_https_server::wait_http(std::shared_ptr<socket_channel> c)
     {
-        return awaitable<void>();
-    }
-
-    awaitable<void> mimt_https_proxy::wait_http(std::shared_ptr<socket_channel> c)
-    {
-          // FIXME 这个需要用智能指针保证executor在https线程时是存在的吗?
+        // FIXME 这个需要用智能指针保证executor在https线程时是存在的吗?
         io_context executor;
 
         // 在当前协程运行
-        auto https_listener = [&executor, c,this]() -> awaitable<void>
+        auto https_listener = [&executor, c, this]() -> awaitable<void>
         {
             for (;;)
             {
                 // 放到单独的协程运行
-                // co_spawn(executor, proxy(http_client(co_await c->async_receive())), detached);
+                // co_spawn(executor, http_service(http_client(std::move(socket)), std::make_shared<hcpp::socket_tunnel>()), detached);
             }
         };
 
@@ -123,11 +120,11 @@ namespace hcpp
 
         auto https_service = [&executor]()
         {
-            spdlog::debug("httpserver线程创建成功");
+            spdlog::debug("mimt https server线程创建成功");
             while (!executor.stopped())
             {
                 try
-                {           
+                {
                     executor.run();
                 }
                 catch (const std::exception &e)
@@ -135,7 +132,7 @@ namespace hcpp
                     spdlog::error(e.what());
                 }
             }
-            spdlog::debug("httpserver线程退出成功");
+            spdlog::debug("mimt https server线程退出成功");
         };
         std::thread t(https_service);
         t.detach();

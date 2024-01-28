@@ -38,7 +38,7 @@ namespace hcpp
 
         /// @brief
         /// @param sock 需要是准备读写状态
-        void init(tcp_socket &&sock);
+        awaitable<void> init(tcp_socket &&sock);
         /// @brief
         /// @param nh_sock 同样读写状态
         /// @param protocol 通过原始socket的endpoin获取protocol
