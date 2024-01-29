@@ -6,6 +6,8 @@
 #include "http/http_svc_keeper.h"
 #include "hmemory.h"
 #include "http/tunnel.h"
+#include "http/thack.h"
+#include "http/httpclient.h"
 
 #include <string>
 
@@ -19,22 +21,36 @@ namespace hcpp
     using namespace experimental;
     using tcp_socket = use_awaitable_t<>::as_default_on_t<ip::tcp::socket>;
 
-    struct tls_client;
+    struct channel_client
+    {
+        virtual ~channel_client()=default;
+        virtual awaitable<std::shared_ptr<memory>> make() &&;
+        std::string host_;
+        std::string service_;
+        std::unique_ptr<tcp_socket> sock_;
+    };
+
+    using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<channel_client>)>>;
+
     // HACK 好像只能支持发送存在默认构造函数的对象.所以不能使用std::unique_ptr
     // using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<tls_client>)>>;
 
-    struct tls_client
+    struct https_client : public http_client
     {
-        // HACK 如果传递native_handle_,在使用另一个io_context构造新的socket时,需要传递协议,这会使代码成为协议相关的
-        // tcp_socket::native_handle_type native_handle_;
-        tcp_socket socket_;
-        std::string host_;
-        std::size_t port_;
+        virtual http_request make_request() const override;
 
-        tls_client(tcp_socket socket) : socket_(std::move(socket)) {}
+        void set_mem(std::shared_ptr<memory> m)
+        {
+            mem_ = m;
+        }
+
+    public:
+        std::string host_;
+        std::string service_;
     };
 
-    awaitable<void> https_listen(std::shared_ptr<socket_channel> src);
+    awaitable<void>
+    https_listen(std::shared_ptr<socket_channel> src);
 
     class ssl_mem_factory : public mem_factory
     {
@@ -51,9 +67,24 @@ namespace hcpp
         }
 
     public:
+        mitm_svc();
+    };
+
+    class channel_tunnel : public tunnel, public std::enable_shared_from_this<channel_tunnel>, public mem_move
+    {
+    public:
+        virtual awaitable<void> make_tunnel(std::shared_ptr<memory> m, std::string host, std::string service) override;
 
     public:
-        mitm_svc();
+        virtual void make(std::unique_ptr<tcp_socket> sock) override;
+        virtual void make(std::unique_ptr<ssl_socket> sock) override;
+
+    public:
+        channel_tunnel(std::shared_ptr<socket_channel> channel) : channel_(channel) {}
+
+    private:
+        std::shared_ptr<socket_channel> channel_;
+        std::shared_ptr<channel_client> chc_;
     };
 } // namespace hcpp
 

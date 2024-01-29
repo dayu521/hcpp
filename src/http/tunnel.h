@@ -42,23 +42,6 @@ namespace hcpp
         std::size_t r_n_ = 0;
         std::size_t w_n_ = 0;
     };
-
-    using namespace asio::experimental;
-
-    using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<http_client>)>>;
-
-    class channel_tunnel : public tunnel, public std::enable_shared_from_this<channel_tunnel>
-    {
-    public:
-        virtual awaitable<void> make_tunnel(std::shared_ptr<memory> m, std::string host, std::string service);
-
-    public:
-        channel_tunnel(std::shared_ptr<socket_channel> channel):channel_(channel) {}
-
-    private:
-        std::shared_ptr<socket_channel> channel_;
-    };
-
 } // namespace hcpp
 
 #endif /* SRC_HTTP_TUNNEL */

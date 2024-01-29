@@ -84,7 +84,7 @@ namespace hcpp
             if (!v)
             {
                 c->close();
-                return_back(host,service,std::make_shared<failed_mem>());
+                return_back(host, service, std::make_shared<failed_mem>());
                 co_return;
             }
             {
@@ -208,7 +208,7 @@ namespace hcpp
 
     svc_cache::svc_cache(std::unique_ptr<mem_factory> mem_factory) : imp_(std::make_shared<imp>())
     {
-        imp_->mem_factory_=std::move(mem_factory);
+        imp_->mem_factory_ = std::move(mem_factory);
         spdlog::warn("初始化svc_cache");
     }
 
@@ -302,24 +302,28 @@ namespace hcpp
 
     awaitable<std::shared_ptr<memory>> socket_mem_factory::create(std::string host, std::string service)
     {
-        auto svc = host + ":" + service;
-        auto dns = slow_dns::get_slow_dns();
-        auto rrs = dns->resolve_cache({host, service});
-        if (!rrs)
-        {
-            rrs.emplace(co_await dns->resolve({host, service}));
-        }
+        // auto svc = host + ":" + service;
+        // auto dns = slow_dns::get_slow_dns();
+        // auto rrs = dns->resolve_cache({host, service});
+        // if (!rrs)
+        // {
+        //     rrs.emplace(co_await dns->resolve({host, service}));
+        // }
 
-        auto e = co_await this_coro::executor;
-        tcp_socket sock(e);
-        if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
+        // auto e = co_await this_coro::executor;
+        // tcp_socket sock(e);
+        // if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
+        // {
+        //     spdlog::info("连接远程出错 -> {}", svc);
+        //     hcpp::slow_dns::get_slow_dns()->remove_svc({host, service}, remote_endpoint.address().to_string());
+        //     co_return std::shared_ptr<memory>{};
+        // }
+        auto sock = co_await make_socket(host, service);
+        if (sock)
         {
-            spdlog::info("连接远程出错 -> {}", svc);
-            hcpp::slow_dns::get_slow_dns()->remove_svc({host, service}, remote_endpoint.address().to_string());
-            co_return std::shared_ptr<memory>{};
+          co_return  std::make_shared<socket_memory>(std::move(*sock));
         }
-        auto v = std::make_shared<socket_memory>(std::move(sock));
-        co_return v;
+        co_return std::shared_ptr<memory>{};
     }
 
 } // namespace hcpp

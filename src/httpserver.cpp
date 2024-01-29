@@ -6,8 +6,12 @@
 
 #include <spdlog/spdlog.h>
 
+#include <latch>
+
 namespace hcpp
 {
+    namespace log=spdlog;
+    inline std::latch latch(1);
 
     awaitable<void> http_do(http_client client, std::unique_ptr<service_keeper> sk)
     {
@@ -26,10 +30,10 @@ namespace hcpp
                 {
                     if (req.method_ == http_request::CONNECT)
                     {
-                        auto t= co_await sk->wait_tunnel(req.host_,req.port_);
+                        auto t = co_await sk->wait_tunnel(req.host_, req.port_);
                         co_await t->make_tunnel(ss, req.host_, req.port_);
                         // co_await socket_tunnel::make_tunnel(ss, req.host_, req.port_, hcpp::slow_dns::get_slow_dns());
-                        co_await ss->async_write_all("HTTP/1.1 200 OK\r\n\r\n");
+                        // co_await ss->async_write_all("HTTP/1.1 200 OK\r\n\r\n");
                         spdlog::debug("建立http tunnel {}", req.host_);
                         co_return;
                     }
@@ -88,34 +92,49 @@ namespace hcpp
         auto executor = co_await this_coro::executor;
 
         tcp_acceptor acceptor(executor, {ip::tcp::v4(), port});
+        latch.wait();
         spdlog::debug("http_server监听端口:{}", acceptor.local_endpoint().port());
         for (;;)
         {
             auto socket = co_await acceptor.async_accept();
-            auto sk=std::make_unique<http_svc_keeper>(make_threadlocal_svc_cache(),slow_dns::get_slow_dns());
-            co_spawn(executor, http_do(http_client(std::move(socket)), std::move(sk)), detached);
+            auto sk = std::make_unique<http_svc_keeper>(make_threadlocal_svc_cache(), slow_dns::get_slow_dns());
+            auto hsk = std::make_unique<hack_sk>(std::move(sk), ta_);
+            co_spawn(executor, http_do(http_client(std::move(socket)), std::move(hsk)), detached);
         }
     }
 
     void httpserver::attach_tunnel(tunnel_advice w)
     {
-        // tunnel_advice_=w;
+        ta_ = w;
         // co_spawn(https_channel->get_executor(), mimt->wait_http(https_channel), detached);
     }
 
-    awaitable<void> mimt_https_server::wait_http(std::shared_ptr<socket_channel> c)
+    awaitable<void> mimt_https_server::wait_c(std::size_t cn)
     {
         // FIXME 这个需要用智能指针保证executor在https线程时是存在的吗?
         io_context executor;
-
+        channel_ = std::make_shared<socket_channel>(co_await this_coro::executor, cn);
+        latch.count_down(1);
         // 在当前协程运行
-        auto https_listener = [&executor, c, this]() -> awaitable<void>
+        auto https_listener = [&executor, c = channel_, this]() -> awaitable<void>
         {
             for (;;)
             {
-                // 放到单独的协程运行
-                //  auto client = co_await src->async_receive();
-                // co_spawn(executor, http_service(http_client(std::move(socket)), std::make_shared<hcpp::socket_tunnel>()), detached);
+                try
+                {
+                    // 放到单独的协程运行
+                    std::shared_ptr<channel_client> cc = co_await c->async_receive();
+                    https_client hsc;
+                    hsc.host_ = cc->host_;
+                    hsc.service_ = cc->service_;
+                    hsc.set_mem(co_await std::move(*cc).make());
+                    auto sk = std::make_unique<mitm_svc>();
+                    co_spawn(executor, http_do(hsc, std::move(sk)), detached);
+                }
+                catch (const std::exception &e)
+                {
+                    log::error(e.what());
+                }
             }
         };
 
@@ -142,6 +161,15 @@ namespace hcpp
 
         co_await https_listener();
         co_return;
+    }
+
+    std::optional<std::shared_ptr<tunnel>> mimt_https_server::find_tunnel(std::string_view svc_host, std::string_view svc_service)
+    {
+        if (svc_host == "github.com" && svc_service == "443")
+        {
+            return std::make_optional(std::make_shared<channel_tunnel>(channel_));
+        }
+        return std::nullopt;
     }
 
 } // namespace hcpp

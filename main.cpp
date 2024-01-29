@@ -37,6 +37,7 @@ int main(int argc, char **argv)
 {
     try
     {
+        namespace log = spdlog;
         spdlog::set_level(spdlog::level::debug);
         spdlog::cfg::load_env_levels();
         // spdlog::set_pattern("*** [%H:%M:%S %z] [thread %t] %v ***");
@@ -64,12 +65,15 @@ int main(int argc, char **argv)
         hcpp::httpserver hs;
         hcpp::mimt_https_server mhs;
 
-        // hs.attach([&mhs, &io_context](auto &&c)
-        //           {
-        //               // co_spawn(io_context,mhs.wait_http(c),detached);
-        //           });
+        hs.attach_tunnel([&mhs](auto &&c, auto h, auto s)
+                         {
+                    if(auto r=mhs.find_tunnel(h,s);r){
+                        return *r;
+                    }
+                      return c; });
 
         co_spawn(io_context, hs.wait_http(c->get_port()), detached);
+        co_spawn(io_context, mhs.wait_c(10), detached);
 
         auto create_thread = [&io_context](auto self, int i) -> void
         {

@@ -15,6 +15,7 @@
 namespace hcpp
 {
     using namespace asio;
+    namespace log=spdlog;
 
     using ip::tcp;
     using default_token = use_awaitable_t<>;
@@ -164,13 +165,8 @@ namespace hcpp
         auto e = co_await this_coro::executor;
         co_spawn(e, bind_read(self), detached);
         co_spawn(e, bind_write(self), detached);
-    }
-
-    awaitable<void> channel_tunnel::make_tunnel(std::shared_ptr<memory> m, std::string host, std::string service)
-    {
-        // http_client h(host,service);
-
-        // co_await channel_->async_send(asio::error_code{}, h);
+        
+        co_await c_->async_write_all("HTTP/1.1 200 OK\r\n\r\n");
     }
 
 } // namespace hcpp

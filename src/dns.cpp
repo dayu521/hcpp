@@ -90,7 +90,7 @@ namespace hcpp
                 co_await asio::async_connect(s, endpoints);
 
                 auto ssl_m=std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::client);
-                ssl_m->init(std::move(s));
+                co_await ssl_m->init(std::move(s));
                 co_await ssl_m->wait(); 
 
                 dnshttps dd(ssl_m, provider.host_);

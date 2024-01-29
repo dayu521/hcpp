@@ -13,6 +13,8 @@ namespace hcpp
 {
     using namespace asio;
 
+    class mem_move;
+
     // TODO 抽象出buff,免去子类实现
     class memory
     {
@@ -33,6 +35,7 @@ namespace hcpp
 
     public:
         virtual ~memory() = default;
+        virtual void check(mem_move &){}
 
     protected:
         bool read_ok_ = true;

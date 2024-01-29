@@ -9,9 +9,9 @@
 
 namespace hcpp
 {
-    using namespace asio;
-    using tcp_socket = use_awaitable_t<>::as_default_on_t<ip::tcp::socket>;
-    using ssl_socket = ssl::stream<tcp_socket>;
+    // using namespace asio;
+    // using tcp_socket = use_awaitable_t<>::as_default_on_t<ip::tcp::socket>;
+    // using ssl_socket = ssl::stream<tcp_socket>;
 
     // XXX 线程不安全
     class ssl_sock_mem : public memory
@@ -25,13 +25,20 @@ namespace hcpp
         virtual awaitable<void> async_write_all(std::string_view) override;
         virtual std::string_view get_some() override;
         virtual std::size_t remove_some(std::size_t) override;
-        virtual void reset() override { read_index_ = write_index_ = 0; buffs_.clear(); }
+        virtual void reset() override
+        {
+            read_index_ = write_index_ = 0;
+            buffs_.clear();
+        }
 
         struct mem_block
         {
             std::size_t begin_;
             std::string data_;
         };
+
+    public:
+        void check(mem_move &) override;
 
     public:
         using ssl_stream_type = ssl::stream_base::handshake_type;

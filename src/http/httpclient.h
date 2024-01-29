@@ -18,7 +18,7 @@ namespace hcpp
     struct request_line
     {
         std::shared_ptr<memory> m_;
-        awaitable<std::optional<request_headers>> parser_reuqest_line( http_request &);
+        awaitable<std::optional<request_headers>> parser_reuqest_line(http_request &);
     };
 
     struct http_request : http_msg
@@ -41,17 +41,17 @@ namespace hcpp
 
     class http_client
     {
-
     public:
         http_client(tcp_socket &&sock);
-        http_client(std::shared_ptr<socket_memory> mem):mem_(mem){}
+        http_client()=default;
+        virtual ~http_client()=default;
 
-        std::shared_ptr<memory> get_memory(){return mem_;}
+        std::shared_ptr<memory> get_memory() { return mem_; }
 
         virtual http_request make_request() const;
 
-    private:
-        std::shared_ptr<socket_memory> mem_;
+    protected:
+        std::shared_ptr<memory> mem_;
     };
 
 } // namespace hcpp

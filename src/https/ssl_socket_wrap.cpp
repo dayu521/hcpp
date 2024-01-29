@@ -1,4 +1,5 @@
 #include "ssl_socket_wrap.h"
+#include "http/thack.h"
 
 #include <asio/streambuf.hpp>
 #include <asio/read_until.hpp>
@@ -30,7 +31,7 @@ namespace hcpp
 
         if (n == 0)
         {
-            //XXX 如何关闭呢 https://www.rfc-editor.org/rfc/rfc5246#section-7.2.1
+            // XXX 如何关闭呢 https://www.rfc-editor.org/rfc/rfc5246#section-7.2.1
             read_ok_ = false;
             write_ok_ = false;
             ssl_sock_->shutdown();
@@ -133,9 +134,27 @@ namespace hcpp
     {
     }
 
+    void ssl_sock_mem::check(mem_move &m)
+    {
+        m.make(std::move(ssl_sock_));
+    }
+
     awaitable<void> ssl_sock_mem::init(tcp_socket &&sock)
     {
-        ctx_ = std::make_unique<ssl::context>(stream_type_ == ssl_stream_type::client ? ssl::context::tls : ssl::context::tls_server);
+        if (stream_type_ == ssl_stream_type::client)
+        {
+            ctx_ = std::make_unique<ssl::context>(ssl::context::tls);
+            // HACK 注意 一定要在使用私钥之前调用
+            ctx_->set_password_callback([](auto a, auto b)
+                                          { return "123456"; });
+            // context.use_certificate_file("output.crt", ssl::context::file_format::pem);
+            ctx_->use_certificate_chain_file("server.crt.pem");
+            ctx_->use_private_key_file("server.key.pem", asio::ssl::context::pem);
+        }
+        else
+        {
+            ctx_ = std::make_unique<ssl::context>(ssl::context::tls_server);
+        }
         ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
         co_await ssl_sock_->async_handshake(stream_type_);
     }

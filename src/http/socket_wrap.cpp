@@ -1,10 +1,14 @@
 #include "socket_wrap.h"
+#include "thack.h"
+#include "dns.h"
 
 #include <asio/read_until.hpp>
 #include <asio/write.hpp>
 #include <asio/experimental/awaitable_operators.hpp>
+#include <asio/experimental/as_single.hpp>
 #include <asio/streambuf.hpp>
 #include <asio/as_tuple.hpp>
+#include <asio/connect.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -29,7 +33,7 @@ namespace hcpp
         r.resize(max_n);
         r.reserve(max_n);
 
-        auto [e, n] = co_await sock_->async_read_some(buffer(r, max_n),as_tuple(use_awaitable));
+        auto [e, n] = co_await sock_->async_read_some(buffer(r, max_n), as_tuple(use_awaitable));
 
         if (n == 0)
         {
@@ -53,7 +57,7 @@ namespace hcpp
         }
 
         // HACK 不需要放到缓存
-        auto [e, n] = co_await sock_->async_write_some(buffer(s),as_tuple(use_awaitable));
+        auto [e, n] = co_await sock_->async_write_some(buffer(s), as_tuple(use_awaitable));
 
         co_return n;
     }
@@ -71,7 +75,7 @@ namespace hcpp
         std::string r{};
         streambuf buff;
 
-        auto [e, n] = co_await asio::async_read_until(*sock_, buff, d,as_tuple(use_awaitable));
+        auto [e, n] = co_await asio::async_read_until(*sock_, buff, d, as_tuple(use_awaitable));
 
         if (n == 0)
         {
@@ -98,7 +102,7 @@ namespace hcpp
             co_return;
         }
 
-        auto [e, n] = co_await async_write(*sock_, buffer(s, s.size()),as_tuple(use_awaitable));
+        auto [e, n] = co_await async_write(*sock_, buffer(s, s.size()), as_tuple(use_awaitable));
     }
 
     std::string_view socket_memory::get_some()
@@ -128,6 +132,32 @@ namespace hcpp
             buffs_.erase(old);
         }
         return mn;
+    }
+
+    void socket_memory::check(mem_move &m)
+    {
+        m.make(std::move(sock_));
+    }
+
+    awaitable<std::optional<tcp_socket>> make_socket(std::string host, std::string service)
+    {
+        auto svc = host + ":" + service;
+        auto dns = slow_dns::get_slow_dns();
+        auto rrs = dns->resolve_cache({host, service});
+        if (!rrs)
+        {
+            rrs.emplace(co_await dns->resolve({host, service}));
+        }
+
+        auto e = co_await this_coro::executor;
+        tcp_socket sock(e);
+        if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
+        {
+            spdlog::info("连接远程出错 -> {}", svc);
+            hcpp::slow_dns::get_slow_dns()->remove_svc({host, service}, remote_endpoint.address().to_string());
+            co_return std::nullopt;
+        }
+        co_return std::make_optional(std::move(sock));
     }
 
 } // namespace hcpp
