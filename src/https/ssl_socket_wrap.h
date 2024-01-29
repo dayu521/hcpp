@@ -45,15 +45,18 @@ namespace hcpp
 
         /// @brief
         /// @param sock 需要是准备读写状态
-        awaitable<void> init(tcp_socket &&sock);
+        void init(tcp_socket &&sock);
         /// @brief
         /// @param nh_sock 同样读写状态
         /// @param protocol 通过原始socket的endpoin获取protocol
         awaitable<void> init(tcp_socket::native_handle_type nh_sock, tcp_socket::protocol_type protocol);
 
+        awaitable<void>  async_handshake();
+
         ssl_sock_mem(ssl_stream_type stream_type);
         
         void set_sni(std::string sni);
+        void close_sni();
 
     private:
         ssl::stream_base::handshake_type stream_type_;

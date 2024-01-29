@@ -139,7 +139,7 @@ namespace hcpp
         m.make(std::move(ssl_sock_));
     }
 
-    awaitable<void> ssl_sock_mem::init(tcp_socket &&sock)
+    void ssl_sock_mem::init(tcp_socket &&sock)
     {
         if (stream_type_ == ssl_stream_type::client)
         {
@@ -156,7 +156,6 @@ namespace hcpp
             ctx_->use_private_key_file("server.key.pem", asio::ssl::context::pem);
         }
         ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
-        co_await ssl_sock_->async_handshake(stream_type_);
     }
 
     awaitable<void> ssl_sock_mem::init(tcp_socket::native_handle_type nh_sock, tcp_socket::protocol_type protocol)
@@ -164,6 +163,10 @@ namespace hcpp
         ctx_ = std::make_unique<ssl::context>(stream_type_ == ssl_stream_type::client ? ssl::context::tls : ssl::context::tls_server);
         auto &&e = co_await this_coro::executor;
         ssl_sock_ = std::make_unique<ssl_socket>(tcp_socket(e, protocol, nh_sock), *ctx_);
+    }
+
+    awaitable<void> ssl_sock_mem::async_handshake()
+    {
         co_await ssl_sock_->async_handshake(stream_type_);
     }
 
@@ -178,6 +181,15 @@ namespace hcpp
         {
             spdlog::error("设置sni失败 {}", sni);
             throw std::runtime_error("设置sni失败");
+        }
+    }
+
+    void ssl_sock_mem::close_sni()
+    {
+        if (!SSL_CTX_set_tlsext_servername_callback(ctx_->native_handle(), nullptr))
+        {
+            spdlog::error("关闭sni失败");
+            throw std::runtime_error("关闭sni失败");
         }
     }
 

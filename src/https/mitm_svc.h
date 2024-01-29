@@ -49,9 +49,6 @@ namespace hcpp
         std::string service_;
     };
 
-    awaitable<void>
-    https_listen(std::shared_ptr<socket_channel> src);
-
     class ssl_mem_factory : public mem_factory
     {
     public:

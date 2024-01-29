@@ -179,7 +179,7 @@ namespace hcpp
         co_return;
     }
 
-    inline std::set<std::pair<std::string, std::string>> tunnel_set{{"github.com", "443"},{"www.baid.com", "443"}};
+    inline std::set<std::pair<std::string, std::string>> tunnel_set{{"github.com", "443"},{"www.baidu.com", "443"}};
 
     std::optional<std::shared_ptr<tunnel>> mimt_https_server::find_tunnel(std::string_view svc_host, std::string_view svc_service)
     {

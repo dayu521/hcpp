@@ -66,7 +66,7 @@ namespace hcpp
     };
     namespace
     {
-        awaitable<edp_lists> resolve(host_edp hedp, const std::vector<dns_provider> & dns_providers)
+        awaitable<edp_lists> resolve(host_edp hedp, const std::vector<dns_provider> &dns_providers)
         {
             using namespace harddns;
             auto c = co_await asio::this_coro::executor;
@@ -89,9 +89,10 @@ namespace hcpp
                 tcp_socket s(c);
                 co_await asio::async_connect(s, endpoints);
 
-                auto ssl_m=std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::client);
-                co_await ssl_m->init(std::move(s));
-                co_await ssl_m->wait(); 
+                auto ssl_m = std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::client);
+                ssl_m->init(std::move(s));
+                co_await ssl_m->async_handshake();
+                co_await ssl_m->wait();
 
                 dnshttps dd(ssl_m, provider.host_);
 
@@ -199,10 +200,10 @@ namespace hcpp
 
     void slow_dns::load_dp(const std::vector<dns_provider> &dp)
     {
-        imp_->dns_providers_=dp;
+        imp_->dns_providers_ = dp;
     }
 
-    void slow_dns::save_hm(std::vector<host_mapping> & hm)
+    void slow_dns::save_hm(std::vector<host_mapping> &hm)
     {
         if (imp_->dns_path_.empty())
         {
