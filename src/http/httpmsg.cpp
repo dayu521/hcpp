@@ -7,6 +7,7 @@
 
 namespace hcpp
 {
+    namespace log=spdlog;
     // https://www.rfc-editor.org/rfc/rfc2616#section-4.2
     bool parser_header(string_view svl, http_headers &h)
     {
@@ -77,7 +78,7 @@ namespace hcpp
     {
         if (header.contains("transfer-encoding"))
         {
-            // TODO Chunked
+            // TODO https://www.rfc-editor.org/rfc/rfc2616#section-3.6.1
             spdlog::error("未实现 Chunked");
             return std::nullopt;
         }
@@ -98,9 +99,14 @@ namespace hcpp
     }
     awaitable<void> http_msg::transfer_msg_body(std::shared_ptr<hcpp::memory> self, std::shared_ptr<hcpp::memory> to)
     {
-        if (body_size_ > 0)
+        if (chunk_size_ > 0)
+        {
+        }
+        else if (body_size_ > 0)
         {
             co_await transfer_mem(self, to, body_size_);
+        }else{
+            log::info("传输完成");
         }
     }
 } // namespace hcpp

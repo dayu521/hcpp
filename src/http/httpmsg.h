@@ -24,11 +24,11 @@ namespace hcpp
     {
         http_headers headers_;
         std::size_t body_size_ = 0;
+        std::size_t chunk_size_ = 0;
         http_msg_body bodys_;
-        bool has_error_=true;
+        bool has_error_ = true;
 
         awaitable<void> transfer_msg_body(std::shared_ptr<hcpp::memory> self, std::shared_ptr<hcpp::memory> to);
-
     };
 
     struct msg_body

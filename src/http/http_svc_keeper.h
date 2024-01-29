@@ -53,7 +53,7 @@ namespace hcpp
         ~service_worker();
 
     public:
-        virtual awaitable<void> wait() override;
+        virtual awaitable<bool> wait() override;
 
         virtual awaitable<std::string_view> async_load_some(std::size_t max_n) override;
         virtual awaitable<std::size_t> async_write_some(std::string_view) override;

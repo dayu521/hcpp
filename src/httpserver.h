@@ -22,7 +22,7 @@ namespace hcpp
 
     // using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<tls_client>)>>;
 
-    awaitable<void> http_do(http_client client, std::unique_ptr<service_keeper> sk);
+    awaitable<void> http_do(std::unique_ptr<http_client> client, std::unique_ptr<service_keeper> sk);
 
     using tunnel_advice = std::function<std::shared_ptr<tunnel>(std::shared_ptr<tunnel>,std::string_view,std::string_view)>;
 

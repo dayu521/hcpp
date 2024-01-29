@@ -19,7 +19,7 @@ namespace hcpp
     class memory
     {
     public:
-        virtual awaitable<void> wait() = 0;
+        virtual awaitable<bool> wait() = 0;
 
         // XXX读取最大max_n的数据,放到buff中.
         virtual awaitable<std::string_view> async_load_some(std::size_t max_n = 1024 * 4) { co_return ""; }
@@ -55,10 +55,10 @@ namespace hcpp
         static void expection_impl() { throw std::runtime_error("to implement"); }
 
     public:
-        virtual awaitable<void> wait()
+        virtual awaitable<bool> wait()
         {
             expection_impl();
-            co_return;
+            co_return false;
         }
 
         // XXX读取最大max_n的数据,放到buff中.

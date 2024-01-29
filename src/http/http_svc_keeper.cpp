@@ -221,9 +221,9 @@ namespace hcpp
         endpoint_cache_->return_back(host_, service_, m_);
     }
 
-    awaitable<void> service_worker::wait()
+    awaitable<bool> service_worker::wait()
     {
-        co_await m_->wait();
+        co_return co_await m_->wait();
     }
 
     awaitable<std::string_view> service_worker::async_load_some(std::size_t max_n)

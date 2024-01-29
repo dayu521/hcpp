@@ -7,21 +7,25 @@
 #include <spdlog/spdlog.h>
 
 #include <latch>
+#include <set>
 
 namespace hcpp
 {
-    namespace log=spdlog;
+    namespace log = spdlog;
     inline std::latch latch(1);
 
-    awaitable<void> http_do(http_client client, std::unique_ptr<service_keeper> sk)
+    awaitable<void> http_do(std::unique_ptr<http_client> client, std::unique_ptr<service_keeper> sk)
     {
         while (true)
         {
-            auto ss = client.get_memory();
+            auto ss = client->get_memory();
             ss->reset();
-            co_await ss->wait();
+            if (!co_await ss->wait())
+            {
+                break;
+            }
 
-            auto req = client.make_request();
+            auto req = client->make_request();
             auto p1 = req.get_first_parser(ss);
 
             if (auto p2 = co_await p1.parser_reuqest_line(req); p2)
@@ -96,10 +100,17 @@ namespace hcpp
         spdlog::debug("http_server监听端口:{}", acceptor.local_endpoint().port());
         for (;;)
         {
-            auto socket = co_await acceptor.async_accept();
-            auto sk = std::make_unique<http_svc_keeper>(make_threadlocal_svc_cache(), slow_dns::get_slow_dns());
-            auto hsk = std::make_unique<hack_sk>(std::move(sk), ta_);
-            co_spawn(executor, http_do(http_client(std::move(socket)), std::move(hsk)), detached);
+            try
+            {
+                auto socket = co_await acceptor.async_accept();
+                auto sk = std::make_unique<http_svc_keeper>(make_threadlocal_svc_cache(), slow_dns::get_slow_dns());
+                auto hsk = std::make_unique<hack_sk>(std::move(sk), ta_);
+                co_spawn(executor, http_do(std::make_unique<http_client>(std::move(socket)), std::move(hsk)), detached);
+            }
+            catch (const std::exception &e)
+            {
+                log::error(e.what());
+            }
         }
     }
 
@@ -116,7 +127,7 @@ namespace hcpp
         channel_ = std::make_shared<socket_channel>(co_await this_coro::executor, cn);
         latch.count_down(1);
         // 在当前协程运行
-        auto https_listener = [&executor, c = channel_, this]() -> awaitable<void>
+        auto https_listener = [&executor, c = channel_]() -> awaitable<void>
         {
             for (;;)
             {
@@ -124,12 +135,17 @@ namespace hcpp
                 {
                     // 放到单独的协程运行
                     std::shared_ptr<channel_client> cc = co_await c->async_receive();
-                    https_client hsc;
-                    hsc.host_ = cc->host_;
-                    hsc.service_ = cc->service_;
-                    hsc.set_mem(co_await std::move(*cc).make());
+                    auto hsc = std::make_unique<https_client>();
+                    hsc->host_ = cc->host_;
+                    hsc->service_ = cc->service_;
+                    if (!cc->sock_)
+                    {
+                        log::error("无法获取socket");
+                        continue;
+                    }
+                    hsc->set_mem(co_await std::move(*cc).make());
                     auto sk = std::make_unique<mitm_svc>();
-                    co_spawn(executor, http_do(hsc, std::move(sk)), detached);
+                    co_spawn(executor, http_do(std::move(hsc), std::move(sk)), detached);
                 }
                 catch (const std::exception &e)
                 {
@@ -163,9 +179,11 @@ namespace hcpp
         co_return;
     }
 
+    inline std::set<std::pair<std::string, std::string>> tunnel_set{{"github.com", "443"},{"www.baid.com", "443"}};
+
     std::optional<std::shared_ptr<tunnel>> mimt_https_server::find_tunnel(std::string_view svc_host, std::string_view svc_service)
     {
-        if (svc_host == "github.com" && svc_service == "443")
+        if (tunnel_set.contains({svc_host.data(), svc_service.data()}))
         {
             return std::make_optional(std::make_shared<channel_tunnel>(channel_));
         }

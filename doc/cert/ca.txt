@@ -29,14 +29,14 @@
 
 在生成CA证书时，您可以使用openssl.cnf文件来指定相关配置，例如：
 
-    openssl req -new -key ca.key -out ca.csr -config openssl.cnf
+    openssl req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -config openssl.cnf
     openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt -extfile openssl.cnf -extensions v3_ca -days 365
 
-注意,还会提示输入必要信息,但是可以直接输入空,回车,就会用默认值
+注意,还会提示输入必要信息,但是可以直接输入空,一路回车,就会用默认值
 
 =========================== 生成证书
 
-首先，您需要创建一个包含证书信息的 openssl.cnf 文件，内容如下：
+首先，您需要创建一个包含证书信息的 openssl2.cnf 文件，内容如下：
 
     [req]
     distinguished_name = req_distinguished_name
@@ -58,5 +58,5 @@
 
 然后，使用以下命令生成证书和密钥文件：
 
-    openssl req -new -nodes -out server.csr -keyout server.key.pem -config openssl.cnf
-    openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt.pem -days 365 -extfile openssl.cnf -extensions v3_req
+    openssl req -new -nodes -out server.csr -keyout server.key.pem -config openssl2.cnf
+    openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt.pem -days 365 -extfile openssl2.cnf -extensions v3_req

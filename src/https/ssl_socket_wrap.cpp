@@ -16,9 +16,9 @@ namespace hcpp
     bool operator<(int lk, const ssl_sock_mem::mem_block &fk) { return lk < fk.begin_; }
     bool operator<(const ssl_sock_mem::mem_block &fk1, const ssl_sock_mem::mem_block &fk2) { return fk1.begin_ < fk2.begin_; }
 
-    awaitable<void> ssl_sock_mem::wait()
+    awaitable<bool> ssl_sock_mem::wait()
     {
-        co_return;
+        co_return ok();
     }
     awaitable<std::string_view> ssl_sock_mem::async_load_some(std::size_t max_n)
     {
@@ -144,16 +144,16 @@ namespace hcpp
         if (stream_type_ == ssl_stream_type::client)
         {
             ctx_ = std::make_unique<ssl::context>(ssl::context::tls);
-            // HACK 注意 一定要在使用私钥之前调用
-            ctx_->set_password_callback([](auto a, auto b)
-                                          { return "123456"; });
-            // context.use_certificate_file("output.crt", ssl::context::file_format::pem);
-            ctx_->use_certificate_chain_file("server.crt.pem");
-            ctx_->use_private_key_file("server.key.pem", asio::ssl::context::pem);
         }
         else
         {
             ctx_ = std::make_unique<ssl::context>(ssl::context::tls_server);
+            // HACK 注意 一定要在使用私钥之前调用
+            ctx_->set_password_callback([](auto a, auto b)
+                                        { return "123456"; });
+            // context.use_certificate_file("output.crt", ssl::context::file_format::pem);
+            ctx_->use_certificate_chain_file("server.crt.pem");
+            ctx_->use_private_key_file("server.key.pem", asio::ssl::context::pem);
         }
         ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
         co_await ssl_sock_->async_handshake(stream_type_);

@@ -66,6 +66,8 @@ target("hcpp")
 
     after_build(function (target)
         os.cp("src/hcpp-cfg.json", target:targetdir())
+        os.cp("doc/cert/server.crt.pem", target:targetdir())
+        os.cp("doc/cert/server.key.pem", target:targetdir())
     end)
     -- before_run(function (target)
     --     os.cp("src/hcpp-cfg.json", target:targetdir())
