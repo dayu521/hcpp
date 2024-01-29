@@ -24,11 +24,13 @@ namespace hcpp
     {
         http_headers headers_;
         std::size_t body_size_ = 0;
-        std::size_t chunk_size_ = 0;
+        bool chunk_coding_ = false;
         http_msg_body bodys_;
         bool has_error_ = true;
 
         awaitable<void> transfer_msg_body(std::shared_ptr<hcpp::memory> self, std::shared_ptr<hcpp::memory> to);
+
+        awaitable<std::size_t> transfer_chunk(std::shared_ptr<hcpp::memory> self, std::shared_ptr<hcpp::memory> to);
     };
 
     struct msg_body
@@ -38,6 +40,8 @@ namespace hcpp
     };
 
     bool parser_header(std::string_view svl, http_headers &h);
+
+    
 
     std::string to_lower(std::string_view s);
 

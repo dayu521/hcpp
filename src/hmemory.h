@@ -16,6 +16,7 @@ namespace hcpp
     class mem_move;
 
     // TODO 抽象出buff,免去子类实现
+    // TODO 合并buff操作
     class memory
     {
     public:
@@ -35,7 +36,7 @@ namespace hcpp
 
     public:
         virtual ~memory() = default;
-        virtual void check(mem_move &){}
+        virtual void check(mem_move &) {}
 
     protected:
         bool read_ok_ = true;
@@ -90,6 +91,14 @@ namespace hcpp
     {
         auto nx = 0;
         auto som_str = from->get_some();
+        //BUG
+        // while (som_str.size() > 0 && nx < total_bytes)
+        // {
+        //     co_await to->async_write_all(som_str);
+        //     from->remove_some(som_str.size());
+        //     nx += som_str.size();
+        // }
+
         if (!som_str.empty())
         {
             co_await to->async_write_all(som_str);

@@ -134,10 +134,16 @@ namespace hcpp
         if (parser_header(sv, h.headers_))
         {
             m_->remove_some(header_end_ + 2);
-            auto s = msg_body_size(h.headers_);
-            if (s)
+            if (h.headers_["transfer-encoding"].find("chunked") != std::string_view::npos)
+            {
+                // https://www.rfc-editor.org/rfc/rfc2616#section-3.6.1
+                h.chunk_coding_ = true;
+            }
+            else if (auto s = msg_body_size(h.headers_); s)
             {
                 h.body_size_ = *s;
+            }else{
+                //没有msgbody
             }
             co_return std::make_optional<msg_body>();
         }

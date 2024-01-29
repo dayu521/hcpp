@@ -55,7 +55,18 @@ namespace hcpp
                         auto w = co_await sk->wait(req.host_, req.port_);
 
                         co_await w->async_write_all(req_line);
-                        co_await req.transfer_msg_body(ss, w);
+                        if (req.chunk_coding_)
+                        {
+                            co_await req.transfer_chunk(ss, w);
+                        }
+                        else if (req.body_size_ > 0)
+                        {
+                            co_await req.transfer_msg_body(ss, w);
+                        }
+                        else
+                        {
+                            // 没有体
+                        }
                         req.has_error_ = false;
 
                         http_response rp;
@@ -65,8 +76,20 @@ namespace hcpp
                             if (auto p3 = co_await (*p2).parser_headers(rp); p3)
                             {
                                 std::string msg_header = rp.response_line_ + rp.response_header_str_;
+                                log::info("响应头\n{}",msg_header);
                                 co_await ss->async_write_all(msg_header);
-                                co_await rp.transfer_msg_body(w, ss);
+                                if (rp.chunk_coding_)
+                                {
+                                    co_await rp.transfer_chunk(w, ss);
+                                }
+                                else if (rp.body_size_ > 0)
+                                {
+                                    co_await rp.transfer_msg_body(w, ss);
+                                }
+                                else
+                                {
+                                    // 没有体
+                                }
                                 continue;
                             }
                         }
@@ -179,7 +202,7 @@ namespace hcpp
         co_return;
     }
 
-    inline std::set<std::pair<std::string, std::string>> tunnel_set{{"github.com", "443"},{"www.baidu.com", "443"}};
+    inline std::set<std::pair<std::string, std::string>> tunnel_set{{"github.com", "443"}, {"www.baidu.com", "443"}};
 
     std::optional<std::shared_ptr<tunnel>> mimt_https_server::find_tunnel(std::string_view svc_host, std::string_view svc_service)
     {

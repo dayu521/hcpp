@@ -54,7 +54,9 @@
     subjectAltName = @alt_names
 
     [alt_names]
-    DNS.1 = node1.pc
+    DNS.1 = github.com
+    DNS.2 = www.baidu.com  
+	DNS.3 = www.gitee.com  
 
 然后，使用以下命令生成证书和密钥文件：
 
