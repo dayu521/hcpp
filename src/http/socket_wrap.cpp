@@ -23,7 +23,7 @@ namespace hcpp
 
     awaitable<bool> socket_memory::wait()
     {
-        co_await sock_->async_wait(tcp_socket::wait_read);
+        // co_await sock_->async_wait(tcp_socket::wait_read);
         co_return ok();
     }
 
@@ -39,7 +39,7 @@ namespace hcpp
         if (n == 0)
         {
             read_ok_ = false;
-            sock_->shutdown(tcp_socket::shutdown_receive);
+            // sock_->shutdown(tcp_socket::shutdown_receive);
             co_return "";
         }
         write_index_ += n;
@@ -81,7 +81,7 @@ namespace hcpp
         if (n == 0)
         {
             read_ok_ = false;
-            sock_->shutdown(tcp_socket::shutdown_receive);
+            // sock_->shutdown(tcp_socket::shutdown_receive);
             co_return "";
         }
         r.resize(buff.size());

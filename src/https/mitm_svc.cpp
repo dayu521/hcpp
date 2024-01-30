@@ -23,7 +23,7 @@ namespace hcpp
         {
             auto ssl_m = std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::client);
             ssl_m->init(std::move(*sock));
-            // ssl_m->set_sni("www.huya.com");
+            // ssl_m->set_sni("www.baidu.com");
             ssl_m->close_sni();
             co_await ssl_m->async_handshake();
             co_return ssl_m;

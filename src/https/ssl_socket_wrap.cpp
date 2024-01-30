@@ -34,7 +34,7 @@ namespace hcpp
             // XXX 如何关闭呢 https://www.rfc-editor.org/rfc/rfc5246#section-7.2.1
             read_ok_ = false;
             write_ok_ = false;
-            ssl_sock_->shutdown();
+            // ssl_sock_->shutdown();
             co_return "";
         }
         write_index_ += n;
@@ -76,7 +76,7 @@ namespace hcpp
         {
             read_ok_ = false;
             write_ok_ = false;
-            ssl_sock_->shutdown();
+            // ssl_sock_->shutdown();
             co_return "";
         }
         r.resize(buff.size());

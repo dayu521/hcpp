@@ -6,13 +6,13 @@
 
 #include <spdlog/spdlog.h>
 
-#include <latch>
+// #include <latch>
 #include <set>
 
 namespace hcpp
 {
     namespace log = spdlog;
-    inline std::latch latch(1);
+    // inline std::latch latch(1);
 
     awaitable<void> http_do(std::unique_ptr<http_client> client, std::unique_ptr<service_keeper> sk)
     {
@@ -36,8 +36,6 @@ namespace hcpp
                     {
                         auto t = co_await sk->wait_tunnel(req.host_, req.port_);
                         co_await t->make_tunnel(ss, req.host_, req.port_);
-                        // co_await socket_tunnel::make_tunnel(ss, req.host_, req.port_, hcpp::slow_dns::get_slow_dns());
-                        // co_await ss->async_write_all("HTTP/1.1 200 OK\r\n\r\n");
                         spdlog::debug("建立http tunnel {}", req.host_);
                         co_return;
                     }
@@ -75,8 +73,13 @@ namespace hcpp
                         {
                             if (auto p3 = co_await (*p2).parser_headers(rp); p3)
                             {
+                                if (rp.headers_["connection"].find("keep-alive") != std::string_view::npos)
+                                {
+                                    w->generous();
+                                }
                                 std::string msg_header = rp.response_line_ + rp.response_header_str_;
-                                log::info("响应头\n{}",msg_header);
+                                // log::info("{}响应头\n{}",req.host_,msg_header);
+                                // log::error("{} connect => {}",req.host_,rp.headers_["connection"]);
                                 co_await ss->async_write_all(msg_header);
                                 if (rp.chunk_coding_)
                                 {
@@ -119,7 +122,7 @@ namespace hcpp
         auto executor = co_await this_coro::executor;
 
         tcp_acceptor acceptor(executor, {ip::tcp::v4(), port});
-        latch.wait();
+        co_await nc->async_receive();
         spdlog::debug("http_server监听端口:{}", acceptor.local_endpoint().port());
         for (;;)
         {
@@ -148,7 +151,8 @@ namespace hcpp
         // FIXME 这个需要用智能指针保证executor在https线程时是存在的吗?
         io_context executor;
         channel_ = std::make_shared<socket_channel>(co_await this_coro::executor, cn);
-        latch.count_down(1);
+
+        co_await nc->async_send(asio::error_code{}, "ok");
         // 在当前协程运行
         auto https_listener = [&executor, c = channel_]() -> awaitable<void>
         {
@@ -202,8 +206,8 @@ namespace hcpp
         co_return;
     }
 
-    //TODO 放配置文件里
-    inline std::set<std::pair<std::string, std::string>> tunnel_set{{"github.com", "443"}, {"www.baidu.com", "443"}};
+    // TODO 放配置文件里
+    inline std::set<std::pair<std::string, std::string>> tunnel_set{{"github.com", "443"}, {"www.baidu.com", "443"},{"gitee.com", "443"}};
 
     std::optional<std::shared_ptr<tunnel>> mimt_https_server::find_tunnel(std::string_view svc_host, std::string_view svc_service)
     {

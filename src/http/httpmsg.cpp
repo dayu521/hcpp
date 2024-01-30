@@ -134,6 +134,7 @@ namespace hcpp
             auto total_chunk_size = chunk_size + 2 + line.size() + 2;
 
             // 把块大小和块一同传送
+            //BUG
             if (auto tn = co_await transfer_mem(self, to, total_chunk_size); tn != total_chunk_size)
             {
                 n += tn;
@@ -142,6 +143,7 @@ namespace hcpp
             }
             n += total_chunk_size;
             assert(self->merge_some() == 0);
+            //BUG 处理异常
             line = co_await self->async_load_until("\r\n");
             line.remove_suffix(2);
         }

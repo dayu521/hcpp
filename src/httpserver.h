@@ -24,7 +24,7 @@ namespace hcpp
 
     awaitable<void> http_do(std::unique_ptr<http_client> client, std::unique_ptr<service_keeper> sk);
 
-    using tunnel_advice = std::function<std::shared_ptr<tunnel>(std::shared_ptr<tunnel>,std::string_view,std::string_view)>;
+    using tunnel_advice = std::function<std::shared_ptr<tunnel>(std::shared_ptr<tunnel>, std::string_view, std::string_view)>;
 
     class hack_sk : public service_keeper
     {
@@ -37,7 +37,7 @@ namespace hcpp
         virtual awaitable<std::shared_ptr<tunnel>> wait_tunnel(std::string svc_host, std::string svc_service) override
         {
             auto r = co_await sk_->wait_tunnel(svc_host, svc_service);
-            r = ta_(r,svc_host,svc_service);
+            r = ta_(r, svc_host, svc_service);
             co_return r;
         }
 
@@ -56,7 +56,7 @@ namespace hcpp
         void attach_tunnel(tunnel_advice w);
 
     private:
-        tunnel_advice ta_ = [](auto &&r,auto,auto)
+        tunnel_advice ta_ = [](auto &&r, auto, auto)
         { return r; };
     };
 
@@ -83,6 +83,9 @@ namespace hcpp
         std::shared_ptr<socket_channel> channel_;
     };
 
+    using notify_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::string)>>;
+
+    inline std::shared_ptr<notify_channel> nc;
 } // namespace hcpp
 
 #endif /* SRC_HTTPSERVER */

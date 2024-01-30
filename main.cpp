@@ -58,6 +58,8 @@ int main(int argc, char **argv)
 
         asio::io_context io_context;
 
+        hcpp::nc=std::make_shared<hcpp::notify_channel>(io_context,1);
+
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto)
                            { io_context.stop(); });
@@ -95,7 +97,7 @@ int main(int argc, char **argv)
             }
         };
         // 为了防止对象在多线程情况下销毁出问题
-        std::jthread t(create_thread, create_thread, 3);
+        // std::jthread t(create_thread, create_thread, 3);
 
         io_context.run();
     }

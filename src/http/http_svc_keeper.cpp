@@ -124,10 +124,10 @@ namespace hcpp
 
     void svc_cache::imp::return_back(const std::string &host, const std::string &service, std::shared_ptr<memory> m)
     {
-        m->reset();
         auto svc = host + ":" + service;
         if (m->ok())
         {
+            m->reset();
             std::unique_lock<std::shared_mutex> lock(shm_rq_);
             auto ib = request_queue_.find(svc);
             assert(ib != request_queue_.end());
@@ -161,6 +161,7 @@ namespace hcpp
                     request_queue_.erase(ib);
                 }
             }
+            remove_endpoint(host,service);
             while (!q.empty())
             {
                 q.front()->close();
@@ -272,6 +273,11 @@ namespace hcpp
         spdlog::error("unsupport");
     }
 
+    void service_worker::mark_dead()
+    {
+        m_->mark_dead();
+    }
+
     awaitable<std::optional<msg_body>> response_headers::parser_headers(http_response &r)
     {
         auto sv = m_->get_some();
@@ -315,22 +321,6 @@ namespace hcpp
 
     awaitable<std::shared_ptr<memory>> socket_mem_factory::create(std::string host, std::string service)
     {
-        // auto svc = host + ":" + service;
-        // auto dns = slow_dns::get_slow_dns();
-        // auto rrs = dns->resolve_cache({host, service});
-        // if (!rrs)
-        // {
-        //     rrs.emplace(co_await dns->resolve({host, service}));
-        // }
-
-        // auto e = co_await this_coro::executor;
-        // tcp_socket sock(e);
-        // if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
-        // {
-        //     spdlog::info("连接远程出错 -> {}", svc);
-        //     hcpp::slow_dns::get_slow_dns()->remove_svc({host, service}, remote_endpoint.address().to_string());
-        //     co_return std::shared_ptr<memory>{};
-        // }
         auto sock = co_await make_socket(host, service);
         if (sock)
         {

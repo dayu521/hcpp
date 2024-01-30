@@ -62,7 +62,7 @@ namespace hcpp
         if (n == 0)
         {
             read_ok_ = false;
-            sock_.shutdown(tcp_socket::shutdown_receive);
+            // sock_.shutdown(tcp_socket::shutdown_receive);
         }
         co_return std::string_view{buff_.data(), n};
     }
@@ -79,7 +79,6 @@ namespace hcpp
         auto [e, n] = co_await async_write(sock_, buffer(data), as_tuple(use_awaitable));
         if (n == 0)
         {
-            sock_.shutdown(tcp_socket::shutdown_send);
             write_ok_ = false;
         }
     }

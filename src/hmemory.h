@@ -17,7 +17,7 @@ namespace hcpp
 
     class mem_move;
 
-    // TODO 抽象出buff,免去子类实现
+    // TODO 抽象出buff
     class memory
     {
     public:
@@ -35,7 +35,8 @@ namespace hcpp
         virtual std::size_t remove_some(std::size_t index) { return 0; }
         // XXX 返回0说明不需要合并
         virtual std::size_t merge_some() { return 0; }
-        virtual bool ok() { return read_ok_ && write_ok_; }
+        virtual bool ok() { return read_ok_ && write_ok_ && long_time_; }
+        virtual void generous() { long_time_ = true; }
         virtual void reset() {}
 
     public:
@@ -45,6 +46,7 @@ namespace hcpp
     protected:
         bool read_ok_ = true;
         bool write_ok_ = true;
+        bool long_time_ = false;
     };
 
     class mem_factory
@@ -109,8 +111,8 @@ namespace hcpp
                     som_str = som_str.substr(0, total_bytes - nx);
                 }
                 co_await to->async_write_all(som_str);
-                from->remove_some(som_str.size());
                 nx += som_str.size();
+                from->remove_some(som_str.size());
             }
         }
 
@@ -118,8 +120,8 @@ namespace hcpp
         {
             auto str = co_await from->async_load_some(total_bytes - nx);
             co_await to->async_write_all(str);
-            from->remove_some(str.size());
             nx += str.size();
+            from->remove_some(str.size());
         }
         assert(from->merge_some() == 0);
         co_return nx;
@@ -132,7 +134,7 @@ namespace hcpp
 
         untrust::KMP kmp(pattern);
         // 缓存没有,可以直接加载
-        if (auto p = kmp.search(som_str,pattern); p < 0)
+        if (auto p = kmp.search(som_str, pattern); p < 0)
         {
             co_await to->async_write_all(som_str);
             n += som_str.size();
@@ -145,18 +147,18 @@ namespace hcpp
         }
         else if (som_str.size() - p < pattern.size())
         {
-            som_str=som_str.substr(0,p);
+            som_str = som_str.substr(0, p);
             co_await to->async_write_all(som_str);
             n += som_str.size();
             from->remove_some(som_str.size());
 
             throw std::runtime_error("低概率发生了");
-            //TODO 脱离这个分支到另外两个分支就好
-            // std::string tmp=from->get_some();
-            // while (tmp.size()- p < pattern.size())
-            // {
-            //     /* code */
-            // }
+            // TODO 脱离这个分支到另外两个分支就好
+            //  std::string tmp=from->get_some();
+            //  while (tmp.size()- p < pattern.size())
+            //  {
+            //      /* code */
+            //  }
         }
         else // 缓存有,直接写缓存
         {
