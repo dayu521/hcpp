@@ -256,6 +256,11 @@ namespace hcpp
         return m_->remove_some(index);
     }
 
+    std::size_t service_worker::merge_some()
+    {
+        return m_->merge_some();
+    }
+
     bool service_worker::ok()
     {
         return m_->ok();
@@ -284,8 +289,10 @@ namespace hcpp
             else if (auto s = msg_body_size(r.headers_); s)
             {
                 r.body_size_ = *s;
-            }else{
-                //没有msgbody
+            }
+            else
+            {
+                // 没有msgbody
             }
             co_return std::make_optional<msg_body>();
         }
@@ -327,7 +334,7 @@ namespace hcpp
         auto sock = co_await make_socket(host, service);
         if (sock)
         {
-          co_return  std::make_shared<socket_memory>(std::move(*sock));
+            co_return std::make_shared<socket_memory>(std::move(*sock));
         }
         co_return std::shared_ptr<memory>{};
     }

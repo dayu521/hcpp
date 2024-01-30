@@ -25,6 +25,7 @@ namespace hcpp
         virtual awaitable<void> async_write_all(std::string_view) override;
         virtual std::string_view get_some() override;
         virtual std::size_t remove_some(std::size_t) override;
+        virtual std::size_t merge_some() override;
         virtual void reset() override
         {
             read_index_ = write_index_ = 0;
@@ -51,10 +52,10 @@ namespace hcpp
         /// @param protocol 通过原始socket的endpoin获取protocol
         awaitable<void> init(tcp_socket::native_handle_type nh_sock, tcp_socket::protocol_type protocol);
 
-        awaitable<void>  async_handshake();
+        awaitable<void> async_handshake();
 
         ssl_sock_mem(ssl_stream_type stream_type);
-        
+
         void set_sni(std::string sni);
         void close_sni();
 

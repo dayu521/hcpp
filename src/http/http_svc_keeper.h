@@ -62,6 +62,7 @@ namespace hcpp
         virtual awaitable<void> async_write_all(std::string_view) override;
         virtual std::string_view get_some() override;
         virtual std::size_t remove_some(std::size_t index) override;
+        virtual std::size_t merge_some() override;
         virtual bool ok() override;
         virtual void reset() override;
 

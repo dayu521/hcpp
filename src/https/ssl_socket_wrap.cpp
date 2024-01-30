@@ -130,6 +130,32 @@ namespace hcpp
         return mn;
     }
 
+    std::size_t ssl_sock_mem::merge_some()
+    {
+        if (buffs_.size() <= 1)
+        {
+            return 0;
+        }
+        std::string::size_type sn = 0;
+
+        for (auto &&i : buffs_)
+        {
+            sn += i.data_.size();
+        }
+        std::string data;
+        data.reserve(sn);
+        for (auto &&i : buffs_)
+        {
+            data.append(i.data_);
+        }
+        mem_block mb{};
+        mb.begin_ = buffs_.begin()->begin_;
+        mb.data_ = std::move(data);
+        buffs_.clear();
+        buffs_.emplace(std::move(mb));
+        return sn;
+    }
+
     ssl_sock_mem::ssl_sock_mem(ssl_stream_type stream_type) : stream_type_(stream_type)
     {
     }

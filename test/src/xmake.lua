@@ -8,6 +8,7 @@ end
 
 target("a")
     set_kind("binary")
+    add_includedirs("../../src")
     add_files("a.cpp")
 
 --

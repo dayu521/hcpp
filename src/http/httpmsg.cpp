@@ -62,54 +62,67 @@ namespace hcpp
         return false;
     }
 
-    inline std::regex hex_reg(R"(^[1-9A-Fa-f][0-9A-Fa-f]{0,15})");
+    inline std::regex hex_reg(R"(^0{1,15}|[1-9A-Fa-f][0-9A-Fa-f]{0,15})");
     inline std::regex zero_reg(R"(^0{0,15})");
 
+    // https://www.rfc-editor.org/rfc/rfc2616#section-3.6.1
     awaitable<std::size_t> http_msg::transfer_chunk(std::shared_ptr<hcpp::memory> self, std::shared_ptr<hcpp::memory> to)
     {
         std::size_t n = 0;
-
-        auto s = self->get_some();
+        self->merge_some();
 
         std::string tem_str;
-        //BUG
 
-        // 解析*chunk
+        // 从缓存中获取chunk大小行
         auto line = self->get_some();
-        if (line.size() == 0)
+        if (auto p = line.find("\r\n"); p == std::string::npos)
         {
-            line = co_await self->async_load_until("\r\n");
-        }
-        else if (auto p=line.find("\r\n");p== std::string::npos)
-        {
-            tem_str=line;
-            if (tem_str.back() == '\r')
+            if (line.empty())
             {
-                tem_str += co_await self->async_load_some(1);
-                if (tem_str.back() != '\n')
+                line = co_await self->async_load_until("\r\n");
+                line.remove_suffix(2);
+            }
+            else if (line.back() == '\r')
+            {
+                if ((co_await self->async_load_some()).back() == '\n')
                 {
+                    line.remove_suffix(1);
+                }
+                else
+                {
+                    log::error("ctlr读取错误,期待\\n");
                     goto F;
                 }
             }
             else
             {
-                tem_str += co_await self->async_load_until("\r\n");
+                auto next_str = co_await self->async_load_until("\r\n");
+                if (next_str.size() == 2)
+                {
+                    ;
+                }
+                else
+                {
+                    tem_str = line;
+                    tem_str += next_str;
+                    line = tem_str;
+                    line.remove_suffix(2);
+                }
             }
-            line=tem_str;
         }
         else
         {
-            line=line.substr(0,p+2);
+            line = line.substr(0, p);
         }
 
-        while (line.size() > 2)
+        while (line.size() > 0)
         {
             // 解析块大小行
             std::smatch m;
-            std::string line_str{line.data(), line.size() - 2};
+            std::string line_str{line.data(), line.size()};
             if (!std::regex_search(line_str, m, hex_reg))
             {
-                log::error("chunk大小不合法 {}", line);
+                log::error("chunk大小不合法 {}", line.substr(0, 30));
                 for (auto i : line.substr(0, 30))
                 {
                     log::error("{}", (unsigned int)(i & 255));
@@ -117,39 +130,35 @@ namespace hcpp
                 goto F;
             }
             std::size_t chunk_size = std::stoul(m.str(), nullptr, 16);
-            auto total_chunk_size = chunk_size + 2 + line.size();
+
+            if (chunk_size == 0)
+            {
+                break;
+            }
+
+            auto total_chunk_size = chunk_size + 2 + line.size() + 2;
 
             // 把块大小和块一同传送
             if (auto tn = co_await transfer_mem(self, to, total_chunk_size); tn != total_chunk_size)
             {
                 n += tn;
-                self->remove_some(tn);
                 log::error("chunk大小与实际大小不符 {} {}", total_chunk_size, tn);
                 goto F;
             }
             n += total_chunk_size;
-            self->remove_some(total_chunk_size);
-
+            assert(self->merge_some() == 0);
             line = co_await self->async_load_until("\r\n");
+            line.remove_suffix(2);
         }
 
-        if(n==0){
+        if (n == 0)
+        {
             log::error("没有解析到chunk");
             goto F;
         }
 
-        if (line.size() == 2)
-        {
-            log::error("last-chunk不正确: {}", line);
-            goto F;
-        }
-
-        // 解析剩下的
-        line = co_await self->async_load_until("\r\n\r\n");
-        co_await to->async_write_all(line);
-        self->remove_some(line.size());
-
-        n += line.size();
+        // 传送剩下的.通常剩下的字节数并不多.
+        n += co_await transfer_mem_until(self, to, "\r\n\r\n");
         co_return n;
     F:
         throw std::runtime_error("chunked transfer error");

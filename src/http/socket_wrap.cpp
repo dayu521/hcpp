@@ -135,6 +135,32 @@ namespace hcpp
         return mn;
     }
 
+    std::size_t socket_memory::merge_some()
+    {
+        if (buffs_.size() <= 1)
+        {
+            return 0;
+        }
+        std::string::size_type sn = 0;
+
+        for (auto &&i : buffs_)
+        {
+            sn += i.data_.size();
+        }
+        std::string data;
+        data.reserve(sn);
+        for (auto &&i : buffs_)
+        {
+            data.append(i.data_);
+        }
+        mem_block mb{};
+        mb.begin_ = buffs_.begin()->begin_;
+        mb.data_ = std::move(data);
+        buffs_.clear();
+        buffs_.emplace(std::move(mb));
+        return sn;
+    }
+
     void socket_memory::check(mem_move &m)
     {
         m.make(std::move(sock_));

@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "untrust/kmp.h"
+
 #include <asio/awaitable.hpp>
 
 namespace hcpp
@@ -16,7 +18,6 @@ namespace hcpp
     class mem_move;
 
     // TODO 抽象出buff,免去子类实现
-    // TODO 合并buff操作
     class memory
     {
     public:
@@ -26,11 +27,14 @@ namespace hcpp
         virtual awaitable<std::string_view> async_load_some(std::size_t max_n = 1024 * 4) { co_return ""; }
         virtual awaitable<std::size_t> async_write_some(std::string_view) { co_return 0; }
 
-        // XXX 读直到.返回已读到的字符串.同时把读到的所有字符放到buff中,通过get_some remove_some 进行缓存读取和消耗
+        // TODO 包含缓存的直到,首先从buff中查找,没有再加载.但这改变了函数的语义
+        //  XXX 读直到.返回已读到的字符串.同时把读到的所有字符放到buff中,通过get_some remove_some 进行缓存读取和消耗
         virtual awaitable<std::string_view> async_load_until(const std::string &) { co_return ""; }
         virtual awaitable<void> async_write_all(std::string_view) { co_return; }
         virtual std::string_view get_some() { return {}; }
         virtual std::size_t remove_some(std::size_t index) { return 0; }
+        // XXX 返回0说明不需要合并
+        virtual std::size_t merge_some() { return 0; }
         virtual bool ok() { return read_ok_ && write_ok_; }
         virtual void reset() {}
 
@@ -87,32 +91,80 @@ namespace hcpp
         }
     };
 
+    // TODO
+    /***********下面的方法属于buff接口***********/
     inline awaitable<std::size_t> transfer_mem(std::shared_ptr<hcpp::memory> from, std::shared_ptr<hcpp::memory> to, std::size_t total_bytes)
     {
-        auto nx = 0;
+        decltype(total_bytes) nx = 0;
+        from->merge_some();
         auto som_str = from->get_some();
-        //BUG
-        // while (som_str.size() > 0 && nx < total_bytes)
-        // {
-        //     co_await to->async_write_all(som_str);
-        //     from->remove_some(som_str.size());
-        //     nx += som_str.size();
-        // }
 
-        if (!som_str.empty())
+        if (nx < total_bytes)
         {
-            co_await to->async_write_all(som_str);
-            from->remove_some(som_str.size());
-            nx += som_str.size();
+            if (som_str.size() > 0)
+            {
+                if (som_str.size() + nx > total_bytes)
+                {
+                    assert(total_bytes >= nx);
+                    som_str = som_str.substr(0, total_bytes - nx);
+                }
+                co_await to->async_write_all(som_str);
+                from->remove_some(som_str.size());
+                nx += som_str.size();
+            }
         }
+
         while (nx < total_bytes)
         {
-            auto str = co_await from->async_load_some();
+            auto str = co_await from->async_load_some(total_bytes - nx);
             co_await to->async_write_all(str);
             from->remove_some(str.size());
             nx += str.size();
         }
+        assert(from->merge_some() == 0);
         co_return nx;
+    }
+    inline awaitable<std::size_t> transfer_mem_until(std::shared_ptr<hcpp::memory> from, std::shared_ptr<hcpp::memory> to, const std::string &pattern)
+    {
+        std::size_t n = 0;
+        from->merge_some();
+        auto som_str = from->get_some();
+
+        untrust::KMP kmp(pattern);
+        // 缓存没有,可以直接加载
+        if (auto p = kmp.search(som_str,pattern); p < 0)
+        {
+            co_await to->async_write_all(som_str);
+            n += som_str.size();
+            from->remove_some(som_str.size());
+
+            auto line = co_await from->async_load_until(pattern);
+            co_await to->async_write_all(line);
+            from->remove_some(line.size());
+            n += line.size();
+        }
+        else if (som_str.size() - p < pattern.size())
+        {
+            som_str=som_str.substr(0,p);
+            co_await to->async_write_all(som_str);
+            n += som_str.size();
+            from->remove_some(som_str.size());
+
+            throw std::runtime_error("低概率发生了");
+            //TODO 脱离这个分支到另外两个分支就好
+            // std::string tmp=from->get_some();
+            // while (tmp.size()- p < pattern.size())
+            // {
+            //     /* code */
+            // }
+        }
+        else // 缓存有,直接写缓存
+        {
+            co_await to->async_write_all(som_str);
+            n += som_str.size();
+            from->remove_some(som_str.size());
+        }
+        co_return n;
     }
 } // namespace hcpp
 
