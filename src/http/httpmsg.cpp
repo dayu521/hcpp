@@ -50,12 +50,7 @@ namespace hcpp
                 val += svl.substr(0, val_end);
                 svl.remove_prefix(val_end + 2);
             }
-            // // 我们认为val中的多值都会是空白分割的,注意,分割空白之后的空白都是空白的值
-            // if (auto [it, ok] = h.emplace(name, val); !ok)
-            // {
-            //     h[name] += " ";
-            //     h[name] += val;
-            // }
+
         }
         return true;
     L:
@@ -63,7 +58,7 @@ namespace hcpp
     }
 
     inline std::regex hex_reg(R"(^0{1,15}|[1-9A-Fa-f][0-9A-Fa-f]{0,15})");
-    inline std::regex zero_reg(R"(^0{0,15})");
+    inline std::regex zero_reg(R"(^0{1,15})");
 
     // https://www.rfc-editor.org/rfc/rfc2616#section-3.6.1
     awaitable<std::size_t> http_msg::transfer_chunk(std::shared_ptr<hcpp::memory> self, std::shared_ptr<hcpp::memory> to)
@@ -175,7 +170,7 @@ namespace hcpp
         return r;
     }
 
-    // TODO 根据规范里的顺序进行读取.其中content-length是在Chunked之后
+    // 根据规范里的顺序,其中content-length优先级是在Chunked之后
     std::optional<std::size_t> msg_body_size(const http_headers &header)
     {
         if (header.contains("content-length"))

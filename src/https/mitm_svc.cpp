@@ -65,7 +65,10 @@ namespace hcpp
     awaitable<std::shared_ptr<memory>> channel_client::make() &&
     {
         auto e = co_await this_coro::executor;
-        tcp_socket s(e, sock_->local_endpoint().protocol(), sock_->release());
+        auto && protocol=sock_->local_endpoint().protocol();
+        auto && h=sock_->release();
+        tcp_socket s(e, protocol, std::move(h));
+        // tcp_socket s(e, sock_->local_endpoint().protocol(), sock_->release());
         auto ssl_m = std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::server);
         ssl_m->init(std::move(s));
         co_await ssl_m->async_handshake();
