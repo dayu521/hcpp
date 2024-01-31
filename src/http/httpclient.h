@@ -43,8 +43,8 @@ namespace hcpp
     {
     public:
         http_client(tcp_socket &&sock);
-        http_client()=default;
-        virtual ~http_client()=default;
+        http_client() = default;
+        virtual ~http_client() = default;
 
         std::shared_ptr<memory> get_memory() { return mem_; }
 

@@ -1,7 +1,6 @@
 #ifndef SRC_UNTRUST_KMP
 #define SRC_UNTRUST_KMP
 
-#include <iostream>
 #include <string>
 #include <vector>
 

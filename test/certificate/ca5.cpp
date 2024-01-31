@@ -6,6 +6,8 @@
 #include <string>
 #include <cstring>
 
+#include <doctest/doctest.h>
+
 // X509_new
 
 // 创建pkey
@@ -259,13 +261,28 @@ void print_cert(X509 *cert)
     }
 }
 
-int main()
+void print_key(EVP_PKEY *pkey)
 {
+    BIO *bio = BIO_new(BIO_s_mem());
+    PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL);
+    auto pkey_size = BIO_pending(bio);
+    auto pkey_array = new char8_t[pkey_size + 1];
+    BIO_read(bio, pkey_array, pkey_size);
+    BIO_free_all(bio);
+    for (size_t i = 0; i < pkey_size; i++)
+    {
+        printf("%c", pkey_array[i]);
+    }
+}
+
+TEST_CASE("example")
+{
+
     auto cert = X509_new();
 
     auto pkey = generate_pkey();
     if (pkey == NULL)
-        return -1;
+        CHECK(false);
     // print_key(pkey);
 
     set_version(cert);
@@ -287,12 +304,12 @@ int main()
     FILE *privateKeyFile = fopen("hcpp.key.pem", "w");
     if (!privateKeyFile)
     {
-        return -1;
+        CHECK(false);
     }
     if (!PEM_write_PrivateKey(privateKeyFile, pkey, nullptr, nullptr, 0, nullptr, nullptr))
     {
         fclose(privateKeyFile);
-        return -1;
+        CHECK(false);
     }
     fclose(privateKeyFile);
 
@@ -303,24 +320,10 @@ int main()
     if (!caCertFile)
     {
         X509_free(cert);
-        return -1;
+        CHECK(false);
     }
     PEM_write_X509(caCertFile, cert);
 
     fclose(caCertFile);
     X509_free(cert);
-    return 0;
-}
-void print_key(EVP_PKEY *pkey)
-{
-    BIO *bio = BIO_new(BIO_s_mem());
-    PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL);
-    auto pkey_size = BIO_pending(bio);
-    auto pkey_array = new char8_t[pkey_size + 1];
-    BIO_read(bio, pkey_array, pkey_size);
-    BIO_free_all(bio);
-    for (size_t i = 0; i < pkey_size; i++)
-    {
-        printf("%c", pkey_array[i]);
-    }
 }

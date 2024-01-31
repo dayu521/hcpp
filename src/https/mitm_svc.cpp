@@ -19,6 +19,7 @@ namespace hcpp
     }
     awaitable<std::shared_ptr<memory>> ssl_mem_factory::create(std::string host, std::string service)
     {
+        try{
         if (auto sock = co_await make_socket(host, service); sock)
         {
             auto ssl_m = std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::client);
@@ -29,6 +30,10 @@ namespace hcpp
             co_return ssl_m;
         }
         co_return std::shared_ptr<memory>{};
+        }catch(std::exception& e){
+            log::error("ssl_mem_factory::create: {}",e.what());
+            throw;
+        }
     }
 
     awaitable<void> channel_tunnel::make_tunnel(std::shared_ptr<memory> m, std::string host, std::string service)

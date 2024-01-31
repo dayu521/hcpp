@@ -79,7 +79,7 @@ namespace hcpp
             }
             else if (line.back() == '\r')
             {
-                if ((co_await self->async_load_some()).back() == '\n')
+                if ((co_await self->async_load_some()).front() == '\n')
                 {
                     line.remove_suffix(1);
                 }
@@ -110,6 +110,7 @@ namespace hcpp
             line = line.substr(0, p);
         }
 
+        log::error("chunk块 开始");
         while (line.size() > 0)
         {
             // 解析块大小行
@@ -144,9 +145,11 @@ namespace hcpp
             n += total_chunk_size;
             assert(self->merge_some() == 0);
             //BUG 处理异常
+            log::error("读取下一块");
             line = co_await self->async_load_until("\r\n");
             line.remove_suffix(2);
         }
+        log::error("chunk块 完成");
 
         if (n == 0)
         {
@@ -155,7 +158,9 @@ namespace hcpp
         }
 
         // 传送剩下的.通常剩下的字节数并不多.
+        log::error("transfer_mem_until 开始");
         n += co_await transfer_mem_until(self, to, "\r\n\r\n");
+        log::error("transfer_mem_until 结束");
         co_return n;
     F:
         throw std::runtime_error("chunked transfer error");

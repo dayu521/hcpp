@@ -61,7 +61,7 @@ namespace harddns
 		int parse_json(const std::string &, uint16_t, dns_reply &, std::string &, const std::string &, std::string::size_type, size_t);
 
 	public:
-		dnshttps(std::shared_ptr<hcpp::memory> mem,std::string dns_host):mem_(mem),dns_host_(dns_host)
+		dnshttps(std::shared_ptr<hcpp::memory> mem, std::string dns_host) : mem_(mem), dns_host_(dns_host)
 		{
 		}
 
@@ -71,6 +71,7 @@ namespace harddns
 		}
 
 		awaitable<int> get(const std::string &, uint16_t, dns_reply &, std::string &);
+		awaitable<int> get_A(const std::string &, dns_reply &);
 
 	private:
 		std::shared_ptr<hcpp::memory> mem_;

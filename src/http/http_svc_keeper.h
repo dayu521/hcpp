@@ -65,7 +65,8 @@ namespace hcpp
         virtual std::size_t merge_some() override;
         virtual bool ok() override;
         virtual void reset() override;
-        virtual void generous() override;
+        virtual void make_alive() override;
+        virtual bool alive()override;
 
     private:
         std::shared_ptr<memory> m_;

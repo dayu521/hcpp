@@ -6,6 +6,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include <doctest/doctest.h>
+
 using namespace asio;
 
 experimental::coro<int(int)> coro_func(any_io_executor e)
@@ -29,12 +31,11 @@ experimental::coro<void> b(auto &c)
     spdlog::info("b {}", *v);
 }
 
-int main()
+TEST_CASE("example")
 {
     io_context io_context;
     auto c = coro_func(io_context.get_executor());
     co_spawn(a(c), detached);
     co_spawn(b(c), detached);
     io_context.run();
-    return 0;
 }

@@ -156,6 +156,16 @@ namespace hcpp
         return sn;
     }
 
+    void ssl_sock_mem::reset()
+    {
+        assert(read_index_==write_index_);
+        read_index_ = write_index_ = 0;
+        auto sm=get_some();
+        log::info("reset结束剩余数据: {}",sm);
+        assert(buffs_.empty());
+        // buffs_.clear();
+    }
+
     ssl_sock_mem::ssl_sock_mem(ssl_stream_type stream_type) : stream_type_(stream_type)
     {
     }

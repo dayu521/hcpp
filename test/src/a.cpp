@@ -9,6 +9,8 @@
 
 #include "untrust/kmp.h"
 
+#include "doctest/doctest.h"
+
 using namespace std;
 
 void lock_test()
@@ -143,12 +145,28 @@ namespace kmp_test
     }
 } // namespace kmp_test
 
-int main(int argc, char const *argv[])
+// int main(int argc, char const *argv[])
+// {
+//     // lock_test();
+//     // set_test();
+//     // cout << zero_reg_test("0000000") << endl;
+//     // kmp_test::test();
+//     regex_test::hex();
+//     return 0;
+// }
+
+TEST_CASE("example")
 {
-    // lock_test();
-    // set_test();
-    // cout << zero_reg_test("0000000") << endl;
-    // kmp_test::test();
-    regex_test::hex();
-    return 0;
+    std::regex hex_reg2(R"(^0{1,15}|[1-9A-Fa-f][0-9A-Fa-f]{0,15})");
+    auto check = [&](std::string text)
+    {
+        std::smatch m;
+        if (!std::regex_search(text, m, hex_reg2))
+        {
+            cout << "匹配不正确" << endl;
+            CHECK(false);
+        }
+        auto l = std::stoul(m[0], nullptr, 16);
+    };
+    check("d33");
 }

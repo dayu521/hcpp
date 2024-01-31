@@ -512,7 +512,13 @@ namespace harddns
 		co_return 0;
 	}
 
-	/// @brief
+    awaitable<int> dnshttps::get_A(const std::string & name, dns_reply & dr)
+    {
+		std::string res;
+        co_return co_await get(name,htons(net_headers::dns_type::A),dr,res);
+    }
+
+    /// @brief
 	/// @param name 	查询名字
 	/// @param type
 	/// @param result 	解析的结果放到这里

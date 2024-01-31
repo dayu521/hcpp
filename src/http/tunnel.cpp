@@ -15,7 +15,7 @@
 namespace hcpp
 {
     using namespace asio;
-    namespace log=spdlog;
+    namespace log = spdlog;
 
     using ip::tcp;
     using default_token = use_awaitable_t<>;
@@ -34,7 +34,7 @@ namespace hcpp
         virtual awaitable<bool> wait();
 
         // XXX读取最大max_n的数据,放到buff中.
-        virtual awaitable<std::string_view> async_load_some(std::size_t max_n = 1024 * 4);
+        virtual awaitable<std::string_view> async_load_some(std::size_t max_n = 1024 * 4 * 2);
 
         virtual awaitable<void> async_write_all(std::string_view);
 
@@ -44,9 +44,9 @@ namespace hcpp
 
     awaitable<bool> simple_tunnel_mem::wait()
     {
-        co_await sock_.async_wait(tcp_socket::wait_write);
+        // co_await sock_.async_wait(tcp_socket::wait_write);
         // co_await sock_.async_wait(tcp_socket::wait_read);
-        read_ok_ = write_ok_ = true;
+        // read_ok_ = write_ok_ = true;
         co_return ok();
     }
 
@@ -94,23 +94,27 @@ namespace hcpp
 
     awaitable<bool> socket_tunnel::wait(std::shared_ptr<slow_dns> dns)
     {
-        auto rrs = dns->resolve_cache({host_, service_});
-        if (!rrs)
-        {
-            rrs.emplace(co_await dns->resolve({host_, service_}));
-        }
+        // auto rrs = dns->resolve_cache({host_, service_});
+        // if (!rrs)
+        // {
+        //     rrs.emplace(co_await dns->resolve({host_, service_}));
+        // }
 
-        auto e = co_await this_coro::executor;
-        tcp_socket sock(e);
-        if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
+        // auto e = co_await this_coro::executor;
+        // tcp_socket sock(e);
+        // if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
+        // {
+        //     spdlog::info("连接远程出错 -> {}:{}", host_, service_);
+        //     dns->remove_svc({host_, service_}, remote_endpoint.address().to_string());
+        //     co_return false;
+        // }
+        if (auto sock = co_await make_socket(host_, service_); sock)
         {
-            spdlog::info("连接远程出错 -> {}:{}", host_, service_);
-            dns->remove_svc({host_, service_}, remote_endpoint.address().to_string());
-            co_return false;
+            s_ = std::make_unique<simple_tunnel_mem>(std::move(*sock));
+            co_await s_->wait();
+            co_return true;
         }
-        s_ = std::make_unique<simple_tunnel_mem>(std::move(sock));
-        co_await s_->wait();
-        co_return true;
+        co_return false;
     }
 
     awaitable<void> socket_tunnel::read()
@@ -164,7 +168,7 @@ namespace hcpp
         auto e = co_await this_coro::executor;
         co_spawn(e, bind_read(self), detached);
         co_spawn(e, bind_write(self), detached);
-        
+
         co_await c_->async_write_all("HTTP/1.1 200 OK\r\n\r\n");
     }
 

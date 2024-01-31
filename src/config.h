@@ -1,7 +1,7 @@
 #ifndef SRC_CONFIG
 #define SRC_CONFIG
 
-#include "json.h"
+#include <lsf/xx.h>
 
 #include <memory>
 #include <string>

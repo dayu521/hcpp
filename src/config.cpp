@@ -1,3 +1,4 @@
+#include <lsf/json.h>
 #include "config.h"
 #include "dns.h"
 
@@ -41,7 +42,7 @@ namespace hcpp
                 spdlog::error("{} : {}", cs_.host_mapping_path_, j.get_errors());
                 throw std::runtime_error("解析host_mapping出错");
             }
-            lsf::json_to_struct(*res, cs_.host_mapping_path_);
+            lsf::json_to_struct(*res, hm_);
         }
     }
 

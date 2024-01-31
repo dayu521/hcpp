@@ -1,5 +1,5 @@
 #include <iostream>
-
+#include <doctest/doctest.h>
 using namespace std;
 
 #define JSON(s)                \
@@ -57,9 +57,9 @@ struct some_has: has_static_init,has_init
 //查找有歧义
 // void (has_init::* p)()=&some_has::init;
 
-int main()
-{
-    auto v = sub_class<hi>();
-    // hx=v;
-    return 0;
-}
+// int main()
+// {
+//     auto v = sub_class<hi>();
+//     // hx=v;
+//     return 0;
+// }

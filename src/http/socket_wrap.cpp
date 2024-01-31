@@ -178,6 +178,9 @@ namespace hcpp
 
         auto e = co_await this_coro::executor;
         tcp_socket sock(e);
+        sock.open(ip::tcp::v4());
+        sock.set_option(socket_base::keep_alive(true));
+
         if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
         {
             spdlog::info("连接远程出错 -> {}", svc);

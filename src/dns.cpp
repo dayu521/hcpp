@@ -99,7 +99,7 @@ namespace hcpp
                 dnshttps::dns_reply dr;
 
                 std::string res;
-                co_await dd.get(hedp.first, htons(net_headers::dns_type::A), dr, res);
+                co_await dd.get_A(hedp.first, dr);
                 for (auto &&i : dr)
                 {
                     ips.insert(i.second.rdata);

@@ -10,10 +10,13 @@
 #include "untrust/kmp.h"
 
 #include <asio/awaitable.hpp>
+#include <spdlog/spdlog.h>
 
 namespace hcpp
 {
     using namespace asio;
+
+    namespace log=spdlog;
 
     class mem_move;
 
@@ -35,8 +38,10 @@ namespace hcpp
         virtual std::size_t remove_some(std::size_t index) { return 0; }
         // XXX 返回0说明不需要合并
         virtual std::size_t merge_some() { return 0; }
-        virtual bool ok() { return read_ok_ && write_ok_ && long_time_; }
-        virtual void generous() { long_time_ = true; }
+        // 读写状态是否合法
+        virtual bool ok() { return read_ok_ && write_ok_; }
+        virtual void make_alive() { long_time_ = true; }
+        virtual bool alive() { return long_time_; }
         virtual void reset() {}
 
     public:
@@ -107,7 +112,6 @@ namespace hcpp
             {
                 if (som_str.size() + nx > total_bytes)
                 {
-                    assert(total_bytes >= nx);
                     som_str = som_str.substr(0, total_bytes - nx);
                 }
                 co_await to->async_write_all(som_str);
@@ -166,6 +170,7 @@ namespace hcpp
             n += som_str.size();
             from->remove_some(som_str.size());
         }
+        log::error("transfer_mem_until剩下的数据: {}", from->get_some());
         co_return n;
     }
 } // namespace hcpp

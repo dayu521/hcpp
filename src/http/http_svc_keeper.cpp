@@ -125,7 +125,7 @@ namespace hcpp
     void svc_cache::imp::return_back(const std::string &host, const std::string &service, std::shared_ptr<memory> m)
     {
         auto svc = host + ":" + service;
-        if (m->ok())
+        if (m->ok()&&m->alive())
         {
             m->reset();
             std::unique_lock<std::shared_mutex> lock(shm_rq_);
@@ -161,7 +161,7 @@ namespace hcpp
                     request_queue_.erase(ib);
                 }
             }
-            remove_endpoint(host,service);
+            remove_endpoint(host, service);
             while (!q.empty())
             {
                 q.front()->close();
@@ -273,9 +273,14 @@ namespace hcpp
         spdlog::error("unsupport");
     }
 
-    void service_worker::mark_dead()
+    void service_worker::make_alive()
     {
-        m_->mark_dead();
+        m_->make_alive();
+    }
+
+    bool service_worker::alive()
+    {
+        return m_->alive();
     }
 
     awaitable<std::optional<msg_body>> response_headers::parser_headers(http_response &r)
@@ -287,7 +292,7 @@ namespace hcpp
         if (parser_header(sv, r.headers_))
         {
             m_->remove_some(header_end_ + 2);
-            if (r.headers_["transfer-encoding"].find("chunked") != std::string_view::npos)
+            if (auto ib = r.headers_.find("transfer-encoding"); ib != r.headers_.end() && ib->second.find("chunked") != std::string_view::npos)
             {
                 // https://www.rfc-editor.org/rfc/rfc2616#section-3.6.1
                 r.chunk_coding_ = true;
