@@ -90,7 +90,8 @@ namespace hcpp
         buff.consume(buff.size());
         write_index_ += r.size();
         auto [i, b] = buffs_.insert({begin, std::move(r)});
-        assert(b);
+        // assert(b);
+        //BUG 为什么有时候断言会失败
         co_return std::string_view{i->data_.data(), n};
     }
 

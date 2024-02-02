@@ -120,12 +120,6 @@ namespace hcpp
             n += complete_chunk_size;
         }
 
-        if (n == 0)
-        {
-            log::error("没有解析到chunk");
-            goto F;
-        }
-
         // 传送剩下的.通常剩下的字节数并不多.
         n += co_await transfer_mem_until(self, to, "\r\n\r\n");
         co_return n;

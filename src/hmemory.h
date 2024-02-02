@@ -138,6 +138,8 @@ namespace hcpp
 
         untrust::KMP kmp(pattern);
         // 缓存没有,可以直接加载
+        // 匹配成功,p是模式在字符串中的起始索引.否则是最后匹配失败所在的索引
+        // AA匹配 ABA,返回2
         if (auto p = kmp.search(som_str, pattern); p < 0)
         {
             co_await to->async_write_all(som_str);
@@ -146,8 +148,8 @@ namespace hcpp
 
             auto line = co_await from->async_load_until(pattern);
             co_await to->async_write_all(line);
-            from->remove_some(line.size());
             n += line.size();
+            from->remove_some(line.size());
         }
         else if (som_str.size() - p < pattern.size())
         {
@@ -156,6 +158,7 @@ namespace hcpp
             n += som_str.size();
             from->remove_some(som_str.size());
 
+            log::error("transfer_mem_until: 这个暂未实现");
             throw std::runtime_error("低概率发生了,暂时不处理");
             // TODO 脱离这个分支到另外两个分支就好
             //  std::string tmp=from->get_some();
