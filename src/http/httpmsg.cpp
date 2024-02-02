@@ -81,102 +81,51 @@ namespace hcpp
         std::size_t n = 0;
         self->merge_some();
 
-        std::string tem_str;
-
-        std::size_t chunk_size = 0;
-
         //  缓存里可能包含多个块,我们找到最后一块
         //  这样,这一块跨越了缓存(小概率正好不在缓存中)
         //  那么处理这一块的传输后,所有的后续传输都不用处理缓存与块相交织的情况了
 
-        // 先从缓存获取第一块的大小
-        auto some_str = self->get_some();
+        // buff中可能的数据
+        // ||chunk_size|\r\n|chunk|\r\n
+        // ||chunk_size...
 
-        // 缓存中没有块跨越,这是极好的,我们可以不用找了
-        if (auto p = some_str.find("\r\n"); p == std::string::npos)
+        while (true)
         {
-            if (some_str.empty())
+            // chunk_size|\r\n 最大不超过18个字符
+            auto some_str = self->get_some();
+            std::string cs_str = some_str.substr(0, 18).data();
+            auto p = cs_str.find("\r\n");
+            while (p == std::string::npos && cs_str.size() < 18)
             {
-                some_str = co_await self->async_load_until("\r\n");
-                some_str.remove_suffix(2);
+                some_str = co_await self->async_load_some();
+                cs_str += some_str.substr(0, 18 - cs_str.size());
+                p = cs_str.find("\r\n");
             }
-            else if (some_str.back() == '\r')
+            if (p == std::string::npos)
             {
-                if ((co_await self->async_load_some()).front() == '\n')
+                log::error("无法解析chunk大小");
+                for (auto &&i : cs_str)
                 {
-                    some_str.remove_suffix(1);
+                    log::error("{} ", static_cast<unsigned int>(i));
                 }
-                else
-                {
-                    throw std::runtime_error("解析chunk大小,期待\\n");
-                }
-            }
-            else
-            {
-                auto next_str = co_await self->async_load_until("\r\n");
-                if (next_str.size() == 2)
-                {
-                    ;
-                }
-                else
-                {
-                    tem_str = some_str;
-                    tem_str += next_str;
-                    some_str = tem_str;
-                    some_str.remove_suffix(2);
-                }
-            }
-            chunk_size = hex_str_to(some_str);
-        }
-        else // 找到第一块,接下来的块根据第一块大小确定
-        {
-            chunk_size = hex_str_to(some_str.substr(0, p));
-            auto chunk_end = chunk_size + 2 + some_str.substr(0, p).size() + 2;
-
-            //TODO 
-            // while (chunk_end < some_str.size())
-            // {
-            //     if (auto p2 = some_str.substr(chunk_size).find("\r\n"); p2 == std::string::npos)
-            //     {
-            //         auto b = some_str.find("\r\n",chunk_size-chunk_end);
-            //         some_str = some_str.substr(chunk_size-chunk_end,  b);
-            //         break;
-            //     }
-            //     else
-            //     {
-            //         auto next_chunk_size = hex_str_to(some_str.substr(chunk_end, p2));
-            //         chunk_end = next_chunk_size + 2 + some_str.substr(chunk_end, p2).size() + 2;
-            //         chunk_size += chunk_end;
-            //     }
-            // }
-        }
-        auto hex_str = some_str;
-
-        while (chunk_size > 0)
-        {
-            // 把块大小和块一同传送
-            std::size_t total_chunk_size = chunk_size + 2 + hex_str.size() + 2;
-            if (auto tn = co_await transfer_mem(self, to, total_chunk_size); tn != total_chunk_size)
-            {
-                n += tn;
-                log::error("chunk大小与实际大小不符 {} {}", total_chunk_size, tn);
                 goto F;
             }
-            n += total_chunk_size;
-            // BUG 这里断言失败
-            assert(self->get_some().empty());
 
-            assert(self->merge_some() == 0);
-            hex_str = co_await self->async_load_until("\r\n");
-            hex_str.remove_suffix(2);
+            cs_str.resize(p);
 
-            // 解析块大小行
-            std::size_t chunk_size = hex_str_to(hex_str);
+            auto chunk_size = hex_str_to(cs_str);
             if (chunk_size == 0)
             {
                 break;
             }
-            total_chunk_size = chunk_size + 2 + hex_str.size() + 2;
+            auto complete_chunk_size = p + 2 + chunk_size + 2;
+            if (auto tn = co_await transfer_mem(self, to, complete_chunk_size); tn != complete_chunk_size)
+            {
+                n += tn;
+                log::error("chunk大小与实际大小不符 {} {}", complete_chunk_size, tn);
+                goto F;
+            }
+            n += complete_chunk_size;
         }
 
         if (n == 0)
