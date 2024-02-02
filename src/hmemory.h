@@ -156,7 +156,7 @@ namespace hcpp
             n += som_str.size();
             from->remove_some(som_str.size());
 
-            throw std::runtime_error("低概率发生了");
+            throw std::runtime_error("低概率发生了,暂时不处理");
             // TODO 脱离这个分支到另外两个分支就好
             //  std::string tmp=from->get_some();
             //  while (tmp.size()- p < pattern.size())
@@ -170,7 +170,6 @@ namespace hcpp
             n += som_str.size();
             from->remove_some(som_str.size());
         }
-        log::error("transfer_mem_until剩下的数据: {}", from->get_some());
         co_return n;
     }
 } // namespace hcpp

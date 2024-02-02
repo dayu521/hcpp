@@ -79,14 +79,13 @@ namespace hcpp
                                     w->make_alive();
                                 }
                                 std::string msg_header = rp.response_line_ + rp.response_header_str_;
-                                log::error("{}响应头\n{}",req.host_,msg_header);
-                                // log::error("{} connect => {}",req.host_,rp.headers_["connection"]);
+                                // log::error("{}响应头\n{}",req.host_,msg_header);
                                 co_await ss->async_write_all(msg_header);
                                 if (rp.chunk_coding_)
                                 {
-                                    log::error("块传送开始 {}",req.host_);
+                                    log::debug("块传送开始 {}",req.host_);
                                     co_await rp.transfer_chunk(w, ss);
-                                    log::error("块传送结束 {}",req.host_);
+                                    log::debug("块传送结束 {}",req.host_);
                                 }
                                 else if (rp.body_size_ > 0)
                                 {
