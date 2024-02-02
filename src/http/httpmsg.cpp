@@ -81,14 +81,6 @@ namespace hcpp
         std::size_t n = 0;
         self->merge_some();
 
-        //  缓存里可能包含多个块,我们找到最后一块
-        //  这样,这一块跨越了缓存(小概率正好不在缓存中)
-        //  那么处理这一块的传输后,所有的后续传输都不用处理缓存与块相交织的情况了
-
-        // buff中可能的数据
-        // ||chunk_size|\r\n|chunk|\r\n
-        // ||chunk_size...
-
         while (true)
         {
             // chunk_size|\r\n 最大不超过18个字符
