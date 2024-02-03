@@ -73,19 +73,23 @@ namespace hcpp
                         {
                             if (auto p3 = co_await (*p2).parser_headers(rp); p3)
                             {
-                                if (rp.headers_["connection"].find("keep-alive") != std::string_view::npos)
+                                if (auto c = rp.headers_.find("connection"); c != rp.headers_.end())
                                 {
-                                    log::warn("保活 {}",req.host_);
-                                    w->make_alive();
+                                    if (c->second.find("keep-alive") != std::string::npos)
+                                    {
+                                        log::warn("保活 {}", req.host_);
+                                        w->make_alive();
+                                    }
                                 }
+                                
                                 std::string msg_header = rp.response_line_ + rp.response_header_str_;
                                 // log::error("{}响应头\n{}",req.host_,msg_header);
                                 co_await ss->async_write_all(msg_header);
                                 if (rp.chunk_coding_)
                                 {
-                                    log::debug("块传送开始 {}",req.host_);
+                                    log::debug("块传送开始 {}", req.host_);
                                     co_await rp.transfer_chunk(w, ss);
-                                    log::debug("块传送结束 {}",req.host_);
+                                    log::debug("块传送结束 {}", req.host_);
                                 }
                                 else if (rp.body_size_ > 0)
                                 {
@@ -137,7 +141,7 @@ namespace hcpp
             }
             catch (const std::exception &e)
             {
-                log::error("wait_http: {}",e.what());
+                log::error("wait_http: {}", e.what());
             }
         }
     }
@@ -167,7 +171,7 @@ namespace hcpp
                     auto hsc = std::make_unique<https_client>();
                     hsc->host_ = cc->host_;
                     hsc->service_ = cc->service_;
-                    log::info("channel_client: {}",hsc->host_);
+                    log::info("channel_client: {}", hsc->host_);
                     if (!cc->sock_)
                     {
                         log::error("无法获取socket");
@@ -179,7 +183,7 @@ namespace hcpp
                 }
                 catch (const std::exception &e)
                 {
-                    log::error("wait_c: {}",e.what());
+                    log::error("wait_c: {}", e.what());
                 }
             }
         };
@@ -211,9 +215,7 @@ namespace hcpp
 
     // TODO 放配置文件里
     inline std::set<std::pair<std::string, std::string>> tunnel_set{
-        {"github.com", "443"}, {"www.baidu.com", "443"},{"gitee.com", "443"}
-        ,{"node4.pc", "8080"}
-        };
+        {"github.com", "443"}, {"www.baidu.com", "443"}, {"gitee.com", "443"}, {"node4.pc", "8080"}};
 
     std::optional<std::shared_ptr<tunnel>> mimt_https_server::find_tunnel(std::string_view svc_host, std::string_view svc_service)
     {

@@ -170,7 +170,6 @@ namespace hcpp
                     co_await to->async_write_all(som_str);
                     n += som_str.size();
                     from->remove_some(som_str.size());
-                    som_str = co_await from->async_load_some();
                     break;
                 }
             }

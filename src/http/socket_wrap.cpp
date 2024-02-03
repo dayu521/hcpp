@@ -23,7 +23,7 @@ namespace hcpp
 
     awaitable<bool> socket_memory::wait()
     {
-        // co_await sock_->async_wait(tcp_socket::wait_read);
+        co_await sock_->async_wait(tcp_socket::wait_read);
         co_return ok();
     }
 
@@ -100,15 +100,7 @@ namespace hcpp
         if (s.empty())
         {
             write_ok_ = false;
-            try
-            {
-
-                sock_->shutdown(tcp_socket::shutdown_send);
-            }
-            catch (const std::exception &e)
-            {
-                log::warn("socket_memory: 关闭shutdown_send失败 {}", e.what());
-            }
+            sock_->shutdown(tcp_socket::shutdown_send);
             co_return;
         }
 

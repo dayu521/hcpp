@@ -76,7 +76,6 @@ namespace hcpp
         {
             read_ok_ = false;
             write_ok_ = false;
-            // ssl_sock_->shutdown();
             co_return "";
         }
         r.resize(buff.size());
