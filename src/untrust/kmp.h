@@ -7,25 +7,30 @@
 namespace hcpp::untrust
 {
     /// 由chat gpt 生成
-    using std::vector, std::string,std::string_view;
+    using std::vector, std::string, std::string_view;
 
     class KMP
     {
     private:
         vector<int> lps;
+        std::string pattern_;
 
-        void computeLPSArray(string pattern)
+        int j = 0;
+        int matchIndex = -1;
+        std::size_t match_len_ = 0;
+
+        void computeLPSArray()
         {
             int len = 0;
             int i = 1;
-            int m = pattern.size();
+            int m = pattern_.size();
 
             lps.resize(m, 0);
             lps[0] = 0;
 
             while (i < m)
             {
-                if (pattern[i] == pattern[len])
+                if (pattern_[i] == pattern_[len])
                 {
                     len++;
                     lps[i] = len;
@@ -47,23 +52,20 @@ namespace hcpp::untrust
         }
 
     public:
-        KMP(string pattern)
+        KMP(string pattern) : pattern_(pattern)
         {
-            computeLPSArray(pattern);
+            computeLPSArray();
         }
 
-        int search(string_view text, string_view pattern)
+        int search(string_view text)
         {
             int n = text.size();
-            int m = pattern.size();
-
+            int m = pattern_.size();
             int i = 0;
-            int j = 0;
-            int matchIndex = -1;
 
             while (i < n)
             {
-                if (pattern[j] == text[i])
+                if (pattern_[j] == text[i])
                 {
                     if (j == 0)
                     {
@@ -75,9 +77,9 @@ namespace hcpp::untrust
 
                 if (j == m)
                 {
-                    return i - j; // 返回匹配的索引
+                    return i - j + match_len_; // 返回匹配的索引
                 }
-                else if (i < n && pattern[j] != text[i])
+                else if (i < n && pattern_[j] != text[i])
                 {
                     if (j != 0)
                     {
@@ -89,7 +91,9 @@ namespace hcpp::untrust
                     }
                 }
             }
-            return matchIndex; // 未找到匹配，返回已经匹配的索引
+            auto r = matchIndex + match_len_; // 未找到匹配，返回已经匹配的索引
+            match_len_ += n;
+            return r;
         }
     };
 } // namespace hcpp::untrust

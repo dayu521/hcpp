@@ -86,15 +86,14 @@ target("hcpp")
     -- end
 target_end()
 
--- add_requires("doctest")
+add_requires("doctest")
 
--- target("dns_test")
---     add_packages("doctest")
---     set_default("false")
---     -- add_deps("hcpp_imp")
---     add_files("test/dns/doh.cpp",{defines = "DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN"})
---     set_languages("c++20")
---     add_tests("dns")
+target("a_test")
+    add_packages("doctest")
+    add_includedirs("src")
+    set_default("false")
+    add_files("test/src/a.cpp",{defines = "DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN"})
+    add_tests("a_test")
 
 -- 打包源码
 -- includes("@builtin/xpack")

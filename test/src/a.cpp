@@ -122,10 +122,10 @@ namespace kmp_test
     {
         string pattern = "AB00";
 
-        hcpp::untrust::KMP kmp(pattern);
         auto check = [&](std::string text)
         {
-            auto result = kmp.search(text, pattern);
+            hcpp::untrust::KMP kmp(pattern);
+            auto result = kmp.search(text);
             if (result == -1)
             {
                 cout << "Pattern not found in the text" << result << endl;
@@ -144,6 +144,28 @@ namespace kmp_test
         check("AB00");
     }
 } // namespace kmp_test
+
+TEST_CASE("kmp_test")
+{
+    // kmp_test::test();
+
+    hcpp::untrust::KMP kmp("abc");
+    CHECK(kmp.search("aabab") == 3);
+    CHECK(kmp.search("c") == 3);
+
+    // dcdax 匹配 abcdcdaxdd
+    hcpp::untrust::KMP kmp2("dcdax");
+    CHECK(kmp2.search("abcdcd") == 3);
+    CHECK(kmp2.search("axdd") == 3);
+
+    {
+        // dcdax 匹配 abcdddcdax
+        hcpp::untrust::KMP kmp("dcdax");
+        CHECK(kmp.search("abcdd") == 4);
+        CHECK(kmp.search("dcd") == 5);
+        CHECK(kmp.search("ax") == 5);
+    }
+}
 
 // int main(int argc, char const *argv[])
 // {

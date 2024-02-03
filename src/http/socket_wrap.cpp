@@ -91,7 +91,7 @@ namespace hcpp
         write_index_ += r.size();
         auto [i, b] = buffs_.insert({begin, std::move(r)});
         // assert(b);
-        //BUG 为什么有时候断言会失败
+        // BUG 为什么有时候断言会失败
         co_return std::string_view{i->data_.data(), n};
     }
 
@@ -100,7 +100,15 @@ namespace hcpp
         if (s.empty())
         {
             write_ok_ = false;
-            sock_->shutdown(tcp_socket::shutdown_send);
+            try
+            {
+
+                sock_->shutdown(tcp_socket::shutdown_send);
+            }
+            catch (const std::exception &e)
+            {
+                log::warn("socket_memory: 关闭shutdown_send失败 {}", e.what());
+            }
             co_return;
         }
 

@@ -16,7 +16,7 @@ namespace hcpp
 {
     using namespace asio;
 
-    namespace log=spdlog;
+    namespace log = spdlog;
 
     class mem_move;
 
@@ -140,7 +140,7 @@ namespace hcpp
         // 缓存没有,可以直接加载
         // 匹配成功,p是模式在字符串中的起始索引.否则是最后匹配失败所在的索引
         // AA匹配 ABA,返回2
-        if (auto p = kmp.search(som_str, pattern); p < 0)
+        if (auto p = kmp.search(som_str); p < 0)
         {
             co_await to->async_write_all(som_str);
             n += som_str.size();
@@ -151,21 +151,30 @@ namespace hcpp
             n += line.size();
             from->remove_some(line.size());
         }
-        else if (som_str.size() - p < pattern.size())
+        else if (std::size_t checked_len = 0; som_str.size() - p < pattern.size())
         {
-            som_str = som_str.substr(0, p);
-            co_await to->async_write_all(som_str);
-            n += som_str.size();
-            from->remove_some(som_str.size());
+            while (true)
+            {
+                checked_len += som_str.size();
+                co_await to->async_write_all(som_str);
+                n += som_str.size();
+                from->remove_some(som_str.size());
 
-            log::error("transfer_mem_until: 这个暂未实现");
-            throw std::runtime_error("低概率发生了,暂时不处理");
-            // TODO 脱离这个分支到另外两个分支就好
-            //  std::string tmp=from->get_some();
-            //  while (tmp.size()- p < pattern.size())
-            //  {
-            //      /* code */
-            //  }
+                som_str = co_await from->async_load_some();
+                // |...checked_len...|som_str.size()|
+                if (auto p = kmp.search(som_str); som_str.size() - (p - checked_len) < pattern.size())
+                    continue;
+                else
+                {
+                    som_str = som_str.substr(0, p - checked_len + pattern.size());
+                    co_await to->async_write_all(som_str);
+                    n += som_str.size();
+                    from->remove_some(som_str.size());
+                    som_str = co_await from->async_load_some();
+                    break;
+                }
+            }
+            co_return n;
         }
         else // 缓存有,直接写缓存
         {

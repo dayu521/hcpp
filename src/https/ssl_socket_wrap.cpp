@@ -159,10 +159,7 @@ namespace hcpp
 
     void ssl_sock_mem::reset()
     {
-        // assert(read_index_==write_index_);
         read_index_ = write_index_ = 0;
-        auto sm=get_some();
-        // assert(buffs_.empty());
         buffs_.clear();
     }
 
