@@ -81,7 +81,7 @@ namespace hcpp
                                         w->make_alive();
                                     }
                                 }
-                                
+
                                 std::string msg_header = rp.response_line_ + rp.response_header_str_;
                                 // log::error("{}响应头\n{}",req.host_,msg_header);
                                 co_await ss->async_write_all(msg_header);
@@ -206,8 +206,12 @@ namespace hcpp
             }
             spdlog::debug("mimt https server线程退出成功");
         };
-        std::thread t(https_service);
-        t.detach();
+        std::jthread t(https_service);
+
+        std::unique_ptr<int,std::function<void(int*)>> ptr(new int(0),[&executor](auto && p){
+            executor.stop();
+            delete p;
+        });
 
         co_await https_listener();
         co_return;
