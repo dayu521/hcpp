@@ -95,7 +95,7 @@ target_end()
 
 includes("@builtin/xpack")
 xpack("hcpp")
-    set_formats("zip", "targz")
+    set_formats("zip")
     add_installfiles("src/hcpp-cfg.json",{prefixdir = "bin"})
     add_installfiles("doc/cert/server.crt.pem",{prefixdir = "bin"})
     add_installfiles("doc/cert/server.key.pem",{prefixdir = "bin"})
