@@ -30,7 +30,8 @@ jobs:
   
       - run: |
             xmake repo -u
-  
+      - run: |
+          xmake f -a x64 -m release -p windows -v -y
       - run: |
             xmake -vrDw -y
 
