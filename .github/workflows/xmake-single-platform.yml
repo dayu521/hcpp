@@ -25,13 +25,14 @@ jobs:
   
       - name: Update xmake repository
         run: xmake repo --update
-        
-      - name: Config
-        run: xmake f -y
 
       - name: Install openssl3
         run: |
             xmake require -vDy openssl3
+            
+      - name: Config
+        run: xmake f -y
+        
       - name: Build
         run: |
             xmake -vrDw -y
