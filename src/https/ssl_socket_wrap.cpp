@@ -186,9 +186,11 @@ namespace hcpp
             // context.use_certificate_file("output.crt", ssl::context::file_format::pem);
             ctx_->use_certificate_chain_file("server.crt.pem");
             ctx_->use_private_key_file("server.key.pem", asio::ssl::context::pem);
-            ctx_->set_verify_callback([](bool preverified, auto &v_ctx){
-                v_ctx.
-            });
+            //TODO create fake cert for proxy server
+            // ssl::host_name_verification()
+            // ctx_->set_verify_callback([](bool preverified, auto &v_ctx){
+            //     v_ctx.
+            // });
         }
         ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
     }
