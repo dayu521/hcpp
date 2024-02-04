@@ -26,6 +26,9 @@ jobs:
       - name: Update xmake repository
         run: xmake repo --update
         
+      - name: Config
+        run: xmake f -y
+        
       - name: Build
         run: |
             xmake -vrDw -y
