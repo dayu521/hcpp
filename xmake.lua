@@ -36,7 +36,7 @@ package_end()
 local openssl_package_name = ""  
 if is_os("windows") then
     add_requires("asio 1.28.0",{verify = false})
-    add_requires("openssl3 3.0.7",{verify = false})
+    add_requires("openssl3 3.0.7",{verify = false,system = false})
     add_requires("lsf")
     openssl_package_name = "openssl3"
 else
