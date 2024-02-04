@@ -42,7 +42,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-            name: my-artifact
+            name: hcpp-artifact
             path: ./package/*
     #   - name: Cache      
     #     uses: actions/cache@v4.0.0
@@ -52,4 +52,12 @@ jobs:
     #         # An explicit key for restoring and saving the cache
     #         key: 
 
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: true
+          # body_path: ${{ github.workspace }}-CHANGELOG.txt  
+          files: ./package/*
+          generate_release_notes: true
           
