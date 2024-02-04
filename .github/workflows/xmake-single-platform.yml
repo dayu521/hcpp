@@ -28,7 +28,10 @@ jobs:
         
       - name: Config
         run: xmake f -y
-        
+
+      - name: Install openssl3
+        run: |
+            xmake require -vDy openssl3
       - name: Build
         run: |
             xmake -vrDw -y
