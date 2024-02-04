@@ -73,12 +73,14 @@ namespace hcpp
                         {
                             if (auto p3 = co_await (*p2).parser_headers(rp); p3)
                             {
+                                //默认是持久连接
+                                //https://www.rfc-editor.org/rfc/rfc2616#section-8.1
                                 if (auto c = rp.headers_.find("connection"); c != rp.headers_.end())
                                 {
-                                    if (c->second.find("keep-alive") != std::string::npos)
+                                    if (c->second.find("close") != std::string::npos)
                                     {
-                                        log::warn("保活 {}", req.host_);
-                                        w->make_alive();
+                                        log::warn("不保活 {}", req.host_);
+                                        w->close();
                                     }
                                 }
 

@@ -40,8 +40,8 @@ namespace hcpp
         virtual std::size_t merge_some() { return 0; }
         // 读写状态是否合法
         virtual bool ok() { return read_ok_ && write_ok_; }
-        virtual void make_alive() { long_time_ = true; }
-        virtual bool alive() { return long_time_; }
+        virtual void close() { closed_ = true; }
+        virtual bool alive() { return !closed_; }
         virtual void reset() {}
 
     public:
@@ -51,7 +51,7 @@ namespace hcpp
     protected:
         bool read_ok_ = true;
         bool write_ok_ = true;
-        bool long_time_ = false;
+        bool closed_ = false;
     };
 
     class mem_factory

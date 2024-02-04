@@ -65,7 +65,7 @@ namespace hcpp
         virtual std::size_t merge_some() override;
         virtual bool ok() override;
         virtual void reset() override;
-        virtual void make_alive() override;
+        virtual void close() override;
         virtual bool alive()override;
 
     private:

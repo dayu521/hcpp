@@ -273,9 +273,9 @@ namespace hcpp
         spdlog::error("unsupport");
     }
 
-    void service_worker::make_alive()
+    void service_worker::close()
     {
-        m_->make_alive();
+        m_->close();
     }
 
     bool service_worker::alive()

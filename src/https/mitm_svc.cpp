@@ -19,19 +19,22 @@ namespace hcpp
     }
     awaitable<std::shared_ptr<memory>> ssl_mem_factory::create(std::string host, std::string service)
     {
-        try{
-        if (auto sock = co_await make_socket(host, service); sock)
+        try
         {
-            auto ssl_m = std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::client);
-            ssl_m->init(std::move(*sock));
-            // ssl_m->set_sni("www.baidu.com");
-            ssl_m->close_sni();
-            co_await ssl_m->async_handshake();
-            co_return ssl_m;
+            if (auto sock = co_await make_socket(host, service); sock)
+            {
+                auto ssl_m = std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::client);
+                ssl_m->init(std::move(*sock));
+                // ssl_m->set_sni("www.baidu.com");
+                ssl_m->close_sni();
+                co_await ssl_m->async_handshake();
+                co_return ssl_m;
+            }
+            co_return std::shared_ptr<memory>{};
         }
-        co_return std::shared_ptr<memory>{};
-        }catch(std::exception& e){
-            log::error("ssl_mem_factory::create: {}",e.what());
+        catch (std::exception &e)
+        {
+            log::error("ssl_mem_factory::create: {}", e.what());
             throw;
         }
     }
@@ -70,8 +73,8 @@ namespace hcpp
     awaitable<std::shared_ptr<memory>> channel_client::make() &&
     {
         auto e = co_await this_coro::executor;
-        auto && protocol=sock_->local_endpoint().protocol();
-        auto && h=sock_->release();
+        auto &&protocol = sock_->local_endpoint().protocol();
+        auto &&h = sock_->release();
         tcp_socket s(e, protocol, std::move(h));
         // tcp_socket s(e, sock_->local_endpoint().protocol(), sock_->release());
         auto ssl_m = std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::server);
