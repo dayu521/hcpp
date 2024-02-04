@@ -1,0 +1,55 @@
+# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
+name: windows
+
+on: workflow_dispatch
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
+    # You can convert this to a matrix build if you need cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: windows-latest
+
+    steps:
+    
+      - uses: actions/checkout@v3
+  
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+          actions-cache-key: '${{ runner.os }}.xmake-cache'
+  
+      - name: Update xmake repository
+        run: xmake repo --update
+            
+      - name: Config
+        run: xmake f -vD -y -F action_xmake.lua
+        
+      - name: Build
+        run: |
+            xmake -vrDw -y -F action_xmake.lua
+
+      - name: Package
+        run: |
+            xmake pack -y -o ./package -F action_xmake.lua
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+            name: my-artifact
+            path: ./package/*
+    #   - name: Cache      
+    #     uses: actions/cache@v4.0.0
+    #     with:
+    #         # A list of files, directories, and wildcard patterns to cache and restore
+    #         path: 
+    #         # An explicit key for restoring and saving the cache
+    #         key: 
+
+          
