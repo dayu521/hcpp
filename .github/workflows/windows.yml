@@ -47,19 +47,19 @@ jobs:
             # xmake g --pkg_installdir=./cache/.xmake/packages
             xmake f -vD -y -F action_xmake.lua
         
-      # - name: Build
-      #   run: |
-      #       xmake -vrDw -y -F action_xmake.lua
+      - name: Build
+        run: |
+            xmake -vrDw -y -F action_xmake.lua
 
-      # - name: Package
-      #   run: |
-      #       xmake pack -y -o ./package -F action_xmake.lua
+      - name: Package
+        run: |
+            xmake pack -y -o ./package -F action_xmake.lua
 
-      # - name: Upload Artifact
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #       name: hcpp-artifact
-      #       path: ./package/*
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+            name: hcpp-artifact
+            path: ./package/*
 
       - name: Release
         uses: softprops/action-gh-release@v1
