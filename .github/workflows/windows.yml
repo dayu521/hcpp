@@ -33,27 +33,29 @@ jobs:
         uses: actions/cache@v4.0.0
         with:
             # A list of files, directories, and wildcard patterns to cache and restore
-            path: ~/.xmake/packages
+            path: ./cache/.xmake/packages
             # An explicit key for restoring and saving the cache
             key: hcpp_xmake_package-${{ runner.os }}  
             
       - name: Config
         if: steps.cache-primes.outputs.cache-hit != 'true'
-        run: xmake f -vD -y -F action_xmake.lua
+        run: |
+            xmake g --pkg_installdir=./cache/.xmake/packages
+            xmake f -vD -y -F action_xmake.lua
         
-      - name: Build
-        run: |
-            xmake -vrDw -y -F action_xmake.lua
+      # - name: Build
+      #   run: |
+      #       xmake -vrDw -y -F action_xmake.lua
 
-      - name: Package
-        run: |
-            xmake pack -y -o ./package -F action_xmake.lua
+      # - name: Package
+      #   run: |
+      #       xmake pack -y -o ./package -F action_xmake.lua
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-            name: hcpp-artifact
-            path: ./package/*
+      # - name: Upload Artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #       name: hcpp-artifact
+      #       path: ./package/*
 
       - name: Release
         uses: softprops/action-gh-release@v1
