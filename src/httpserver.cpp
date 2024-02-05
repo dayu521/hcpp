@@ -210,8 +210,10 @@ namespace hcpp
         };
         std::jthread t(https_service);
 
-        std::unique_ptr<int,std::function<void(int*)>> ptr(new int(0),[&executor](auto && p){
-            executor.stop();
+        std::unique_ptr<int,std::function<void(int*)>> ptr(new int(0),[&work_guard/*,&executor*/](auto && p){
+            // executor.stop();
+            log::info("work_guard分离");
+            work_guard.reset();
             delete p;
         });
 

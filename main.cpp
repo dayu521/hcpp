@@ -82,6 +82,7 @@ int main(int argc, char **argv)
             if (i > 0)
             {
                 std::jthread j(self, self, i - 1);
+                spdlog::debug("线程{}创建成功",i);
                 while (!io_context.stopped())
                 {
                     try
@@ -93,7 +94,8 @@ int main(int argc, char **argv)
                         spdlog::error(e.what());
                     }
                 }
-                spdlog::debug("线程退出成功");
+                j.join();
+                spdlog::debug("线程{}退出成功",i);
             }
         };
         // 为了防止对象在多线程情况下销毁出问题

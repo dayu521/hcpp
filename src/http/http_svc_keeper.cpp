@@ -125,7 +125,7 @@ namespace hcpp
     void svc_cache::imp::return_back(const std::string &host, const std::string &service, std::shared_ptr<memory> m)
     {
         auto svc = host + ":" + service;
-        if (m->ok()&&m->alive())
+        if (m->ok() && m->alive())
         {
             m->reset();
             std::unique_lock<std::shared_mutex> lock(shm_rq_);
@@ -219,7 +219,15 @@ namespace hcpp
 
     service_worker::~service_worker()
     {
-        endpoint_cache_->return_back(host_, service_, m_);
+        try
+        {
+
+            endpoint_cache_->return_back(host_, service_, m_);
+        }
+        catch (std::exception &e)
+        {
+            log::error("~service_worker: {}", e.what());
+        }
     }
 
     awaitable<bool> service_worker::wait()

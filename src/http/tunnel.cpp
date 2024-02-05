@@ -94,20 +94,6 @@ namespace hcpp
 
     awaitable<bool> socket_tunnel::wait(std::shared_ptr<slow_dns> dns)
     {
-        // auto rrs = dns->resolve_cache({host_, service_});
-        // if (!rrs)
-        // {
-        //     rrs.emplace(co_await dns->resolve({host_, service_}));
-        // }
-
-        // auto e = co_await this_coro::executor;
-        // tcp_socket sock(e);
-        // if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
-        // {
-        //     spdlog::info("连接远程出错 -> {}:{}", host_, service_);
-        //     dns->remove_svc({host_, service_}, remote_endpoint.address().to_string());
-        //     co_return false;
-        // }
         if (auto sock = co_await make_socket(host_, service_); sock)
         {
             s_ = std::make_unique<simple_tunnel_mem>(std::move(*sock));
