@@ -33,14 +33,14 @@ jobs:
         uses: actions/cache@v4.0.0
         with:
             # A list of files, directories, and wildcard patterns to cache and restore
-            path: ./cache/.xmake/packages
+            path: ${{ env.XMAKE_GLOBALDIR }}/.xmake/packages
             # An explicit key for restoring and saving the cache
             key: hcpp_xmake_package-${{ runner.os }}  
             
       - name: Config
         if: steps.cache-primes.outputs.cache-hit != 'true'
         run: |
-            xmake g --pkg_installdir=./cache/.xmake/packages
+            # xmake g --pkg_installdir=./cache/.xmake/packages
             xmake f -vD -y -F action_xmake.lua
         
       # - name: Build
