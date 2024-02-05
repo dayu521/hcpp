@@ -14,11 +14,12 @@ jobs:
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: windows-latest
-
+    permissions:
+      contents: write
     steps:
     
       - uses: actions/checkout@v3
-  
+      
       - uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
@@ -27,8 +28,17 @@ jobs:
   
       - name: Update xmake repository
         run: xmake repo --update
+        
+      - name: Cache xmake packages  
+        uses: actions/cache@v4.0.0
+        with:
+            # A list of files, directories, and wildcard patterns to cache and restore
+            path: ~/.xmake/packages
+            # An explicit key for restoring and saving the cache
+            key: hcpp_xmake_package-${{ runner.os }}  
             
       - name: Config
+        if: steps.cache-primes.outputs.cache-hit != 'true'
         run: xmake f -vD -y -F action_xmake.lua
         
       - name: Build
@@ -44,13 +54,6 @@ jobs:
         with:
             name: hcpp-artifact
             path: ./package/*
-    #   - name: Cache      
-    #     uses: actions/cache@v4.0.0
-    #     with:
-    #         # A list of files, directories, and wildcard patterns to cache and restore
-    #         path: 
-    #         # An explicit key for restoring and saving the cache
-    #         key: 
 
       - name: Release
         uses: softprops/action-gh-release@v1
