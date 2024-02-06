@@ -4,10 +4,10 @@
 #include "http/tunnel.h"
 #include "http/http_svc_keeper.h"
 
-#include <spdlog/spdlog.h>
+#include <limits>
+#include <chrono>
 
-// #include <latch>
-#include <set>
+#include <spdlog/spdlog.h>
 
 namespace hcpp
 {
@@ -36,13 +36,12 @@ namespace hcpp
                     {
                         auto t = co_await sk->wait_tunnel(req.host_, req.port_);
                         co_await t->make_tunnel(ss, req.host_, req.port_);
-                        spdlog::debug("建立http tunnel {}", req.host_);
                         co_return;
                     }
                     else if (!req.host_.empty())
                     {
                         req.headers_.erase("proxy-connection");
-                        req.headers_["connection"] = "Connection: keep-alive\r\n";
+                        // req.headers_["connection"] = "Connection: keep-alive\r\n";
                         std::string req_line = req.method_str_ + " " + req.url_ + " " + req.version_ + "\r\n";
                         for (auto &&header : req.headers_)
                         {
@@ -52,6 +51,8 @@ namespace hcpp
 
                         auto w = co_await sk->wait(req.host_, req.port_);
 
+                        log::info("http_do:请求开始\n{}{}",req.host_,req.url_);
+                        auto start_point = std::chrono::high_resolution_clock::now();  
                         co_await w->async_write_all(req_line);
                         if (req.chunk_coding_)
                         {
@@ -73,8 +74,8 @@ namespace hcpp
                         {
                             if (auto p3 = co_await (*p2).parser_headers(rp); p3)
                             {
-                                //默认是持久连接
-                                //https://www.rfc-editor.org/rfc/rfc2616#section-8.1
+                                // 默认是持久连接
+                                // https://www.rfc-editor.org/rfc/rfc2616#section-8.1
                                 if (auto c = rp.headers_.find("connection"); c != rp.headers_.end())
                                 {
                                     if (c->second.find("close") != std::string::npos)
@@ -97,10 +98,33 @@ namespace hcpp
                                 {
                                     co_await rp.transfer_msg_body(w, ss);
                                 }
+                                else if (!w->alive())
+                                {
+                                    w->merge_some();
+                                    auto str = w->get_some();
+                                    if (!str.empty())
+                                    {
+                                        co_await ss->async_write_all(str);
+                                        w->remove_some(str.size());
+                                    }
+                                    while (true)
+                                    {
+                                        str = co_await w->async_load_some();
+                                        co_await ss->async_write_all(str);
+                                        if(str.empty()){
+                                            break;
+                                        }
+                                        w->remove_some(str.size());
+                                    }
+                                    // co_return;
+                                }
                                 else
                                 {
-                                    // 没有体
+                                    ;
                                 }
+                                auto end_point = std::chrono::high_resolution_clock::now();  
+                                auto du=std::chrono::duration_cast<std::chrono::milliseconds>(end_point - start_point).count();
+                                log::info("http_do:请求结束\n{}{}\n间隔 {}ms ",req.host_,req.url_,du);
                                 continue;
                             }
                         }
@@ -210,24 +234,20 @@ namespace hcpp
         };
         std::jthread t(https_service);
 
-        std::unique_ptr<int,std::function<void(int*)>> ptr(new int(0),[&work_guard/*,&executor*/](auto && p){
+        std::unique_ptr<int, std::function<void(int *)>> ptr(new int(0), [&work_guard /*,&executor*/](auto &&p)
+                                                             {
             // executor.stop();
             log::info("work_guard分离");
             work_guard.reset();
-            delete p;
-        });
+            delete p; });
 
         co_await https_listener();
         co_return;
     }
 
-    // TODO 放配置文件里
-    inline std::set<std::pair<std::string, std::string>> tunnel_set{
-        {"github.com", "443"}, {"www.baidu.com", "443"}, {"gitee.com", "443"}, {"node4.pc", "8080"}};
-
     std::optional<std::shared_ptr<tunnel>> mimt_https_server::find_tunnel(std::string_view svc_host, std::string_view svc_service)
     {
-        if (tunnel_set.contains({svc_host.data(), svc_service.data()}))
+        if (tunnel_set_.contains({svc_host.data(), svc_service.data()}))
         {
             return std::make_optional(std::make_shared<channel_tunnel>(channel_));
         }

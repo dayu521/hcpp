@@ -154,7 +154,7 @@ namespace hcpp
         auto e = co_await this_coro::executor;
         co_spawn(e, bind_read(self), detached);
         co_spawn(e, bind_write(self), detached);
-
+        spdlog::debug("建立http tunnel {}", host_);
         co_await c_->async_write_all("HTTP/1.1 200 OK\r\n\r\n");
     }
 

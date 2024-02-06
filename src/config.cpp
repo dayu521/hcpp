@@ -1,6 +1,7 @@
 #include <lsf/json.h>
 #include "config.h"
 #include "dns.h"
+#include "httpserver.h"
 
 #include <fstream>
 #include <filesystem>
@@ -25,6 +26,7 @@ namespace hcpp
         }
         lsf::Json j;
 
+        // 主配置文件
         auto res = j.run(std::make_unique<lsf::FileSource>(std::string(config_path)));
         if (!res)
         {
@@ -34,6 +36,7 @@ namespace hcpp
         }
         lsf::json_to_struct_ignore_absence(*res, cs_);
 
+        // 主机映射配置文件
         if (!cs_.host_mapping_path_.empty())
         {
             auto res = j.run(std::make_unique<lsf::FileSource>(cs_.host_mapping_path_));
@@ -43,6 +46,20 @@ namespace hcpp
                 throw std::runtime_error("解析host_mapping出错");
             }
             lsf::json_to_struct(*res, hm_);
+        }
+
+        // 代理服务配置文件
+        if (!cs_.proxy_service_path_.empty())
+        {
+            auto res = j.run(std::make_unique<lsf::FileSource>(cs_.proxy_service_path_));
+            if (!res)
+            {
+                spdlog::error("{} : {}", cs_.proxy_service_path_, j.get_errors());
+                throw std::runtime_error("解析proxy_service出错");
+            }
+            decltype(cs_.proxy_service_) ps;
+            lsf::json_to_struct(*res, ps);
+            std::ranges::move(ps, std::back_inserter(cs_.proxy_service_));
         }
     }
 
@@ -83,15 +100,34 @@ namespace hcpp
         }
     }
 
-    bool hcpp::config::load_host_mapping(std::shared_ptr<slow_dns> sd)
+    bool config::config_to(std::shared_ptr<slow_dns> dns)
     {
-        sd->load_hm(hm_);
+        for (auto &&i : cs_.proxy_service_)
+        {
+            if (i.doh_)
+            {
+                dns->add_doh_filter(i.host_);
+            }
+        }
+        dns->load_hm(hm_);
+        dns->load_dp(cs_.dns_provider_);
         return true;
     }
 
-    bool hcpp::config::load_dns_provider(std::shared_ptr<slow_dns> sd)
+    bool config::config_to(std::shared_ptr<mimt_https_server> mhs)
     {
-        sd->load_dp(cs_.dns_provider_);
+        return config_to(*mhs);
+    }
+
+    bool config::config_to(mimt_https_server &mhs)
+    {
+        for (auto &&i : cs_.proxy_service_)
+        {
+            if (i.mitm_)
+            {
+                mhs.tunnel_set_.insert({i.host_, i.svc_});
+            }
+        }
         return true;
     }
 

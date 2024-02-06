@@ -51,8 +51,7 @@ int main(int argc, char **argv)
             cfg_path = argv[1];
         }
         auto c = hcpp::config::get_config(cfg_path);
-        c->load_host_mapping(hcpp::slow_dns::get_slow_dns());
-        c->load_dns_provider(hcpp::slow_dns::get_slow_dns());
+        c->config_to(hcpp::slow_dns::get_slow_dns());
         c->save_callback([sd = hcpp::slow_dns::get_slow_dns()](auto &&cs)
                          { sd->save_hm(cs.hm_); });
 
@@ -66,6 +65,7 @@ int main(int argc, char **argv)
 
         hcpp::httpserver hs;
         hcpp::mimt_https_server mhs;
+        c->config_to(mhs);
 
         hs.attach_tunnel([&mhs](auto &&c, auto h, auto s)
                          {

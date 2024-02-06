@@ -38,13 +38,11 @@ using channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void
 
 namespace hcpp
 {
-    struct dns_cfg
-    {
-        std::vector<host_mapping> mappings_;
-    };
+
     struct slow_dns::slow_dns_imp
     {
         std::vector<dns_provider> dns_providers_;
+        std::set<std::string> doh_filter_;
 
         std::shared_mutex smutex_;
         std::map<host_edp, edp_lists> edp_cache_;
@@ -203,6 +201,12 @@ namespace hcpp
         imp_->dns_providers_ = dp;
     }
 
+    void slow_dns::add_doh_filter(std::string host)
+    {
+        imp_->doh_filter_.insert(host);
+        // imp_->doh_filter_=std::set<host_edp>{doh_filter.begin(),doh_filter.end()};
+    }
+
     void slow_dns::save_hm(std::vector<host_mapping> &hm)
     {
         if (imp_->dns_path_.empty())
@@ -297,7 +301,7 @@ namespace hcpp
         }
 
         edp_lists el;
-        if (hedp.first == "github.com")
+        if (doh_filter_.contains(hedp.first))
         {
             el = co_await hcpp::resolve(hedp, dns_providers_);
             // el.push_back({asio::ip::make_address("192.30.255.113"), 443});

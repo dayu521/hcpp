@@ -46,6 +46,7 @@ namespace hcpp
         chc_->host_ = host;
         chc_->service_ = service;
         m->check(*this);
+        spdlog::debug("建立channel tunnel {}", host);
         co_await channel_->async_send(asio::error_code{}, chc_);
     }
 

@@ -12,7 +12,7 @@
 
 #include <functional>
 #include <memory>
-#include <latch>
+#include <set>
 
 namespace hcpp
 {
@@ -79,6 +79,7 @@ namespace hcpp
 
         std::optional<std::shared_ptr<tunnel>> find_tunnel(std::string_view svc_host, std::string_view svc_service);
 
+        std::set<std::pair<std::string, std::string>> tunnel_set_;
     private:
         std::shared_ptr<socket_channel> channel_;
     };

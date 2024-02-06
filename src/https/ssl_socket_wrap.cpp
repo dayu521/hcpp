@@ -230,4 +230,17 @@ namespace hcpp
         }
     }
 
+    ssl_sock_mem::~ssl_sock_mem()
+    {
+        try
+        {
+            ssl_sock_->shutdown();
+        }
+        catch(const std::exception& e)
+        {
+            log::error("~ssl_sock_mem: {}", e.what());
+        }
+        
+    }
+
 } // namespace hcpp

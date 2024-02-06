@@ -55,13 +55,16 @@ namespace hcpp
         void set_sni(std::string sni);
         void close_sni();
 
+    public:
+        ~ssl_sock_mem();
+
     private:
         ssl::stream_base::handshake_type stream_type_;
         std::unique_ptr<ssl::context> ctx_;
-        //BUG https://github.com/chriskohlhoff/asio/issues/355
-        //https://think-async.com/Asio/asio-1.28.0/doc/asio/reference/ssl__stream/_stream.html
-        //A stream object must not be destroyed while there are pending asynchronous operations associated with it. 
-        std::unique_ptr<ssl_socket> ssl_sock_;  
+        // BUG https://github.com/chriskohlhoff/asio/issues/355
+        // https://think-async.com/Asio/asio-1.28.0/doc/asio/reference/ssl__stream/_stream.html
+        // A stream object must not be destroyed while there are pending asynchronous operations associated with it.
+        std::unique_ptr<ssl_socket> ssl_sock_;
 
         std::set<mem_block, std::less<>> buffs_;
         std::size_t read_index_ = 0;

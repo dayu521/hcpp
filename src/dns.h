@@ -34,6 +34,7 @@ namespace hcpp
 
         void load_hm(const std::vector<host_mapping> & hm);
         void load_dp(const std::vector<dns_provider> & dp);
+        void add_doh_filter(std::string host);
         void save_hm(std::vector<host_mapping> & hm);
 
         // TODO 清理缓存.那些无法连接上的也需要清理
