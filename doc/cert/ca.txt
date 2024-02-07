@@ -56,7 +56,7 @@
     [alt_names]
     DNS.1 = github.com
     DNS.2 = www.baidu.com  
-	DNS.3 = www.gitee.com  
+	DNS.3 = gitee.com  
 
 然后，使用以下命令生成证书和密钥文件：
 

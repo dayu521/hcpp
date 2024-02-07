@@ -29,7 +29,6 @@ namespace hcpp
 
     public:
         awaitable<edp_lists> resolve(host_edp hedp);
-        std::optional<edp_lists> resolve_cache(host_edp hedp);
         void remove_svc(const host_edp & hedp, std::string_view ip);
 
         void load_hm(const std::vector<host_mapping> & hm);
@@ -43,8 +42,6 @@ namespace hcpp
 
     private:
         slow_dns();
-
-        inline static thread_local std::map<host_edp, edp_lists> local_dns;
 
         struct slow_dns_imp;
         std::shared_ptr<slow_dns_imp> imp_;

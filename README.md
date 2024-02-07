@@ -20,6 +20,8 @@ linux下使用clang>16,在debug下编译
 
 windows使用最新编译器
 
+打开终端或`wt`
+
 ```shell
     xmake g --proxy_pac=github_mirror.lua
 
@@ -30,7 +32,7 @@ windows使用最新编译器
 
 #### 例子
 
-当前测试了三个主机,`github.com`,`www.gitee.com`,`www.baidu.com`.这三者由mitm代理.使用下面的自签名的`ca证书`,签名了服务的证书.服务的证书包含了上述三个主机名
+当前测试了三个主机,`github.com`,`gitee.com`,`www.baidu.com`.这三者由mitm代理.使用下面的自签名的`ca证书`,签名了服务的证书.服务的证书包含了上述三个主机名
 
 其余主机都是正常的http proxy或者http tunnel代理
 

@@ -14,8 +14,16 @@ namespace hcpp
 
     using namespace asio::buffer_literals;
 
+    awaitable<std::shared_ptr<memory>> mitm_svc::wait(std::string svc_host, std::string svc_service)
+    {
+        if (!m_)
+            m_ = co_await f_->create(svc_host, svc_service);
+        co_return m_;
+    }
+
     mitm_svc::mitm_svc() : http_svc_keeper(make_threadlocal_svc_cache<mitm_svc>(), slow_dns::get_slow_dns())
     {
+        f_ = std::move(make_mem_factory());
     }
     awaitable<std::shared_ptr<memory>> ssl_mem_factory::create(std::string host, std::string service)
     {
@@ -34,7 +42,7 @@ namespace hcpp
         }
         catch (std::exception &e)
         {
-            log::error("ssl_mem_factory::create: {}", e.what());
+            log::error("ssl_mem_factory::create:{} {}", host,e.what());
             throw;
         }
     }

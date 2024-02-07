@@ -175,7 +175,6 @@ namespace hcpp
     void httpserver::attach_tunnel(tunnel_advice w)
     {
         ta_ = w;
-        // co_spawn(https_channel->get_executor(), mimt->wait_http(https_channel), detached);
     }
 
     awaitable<void> mimt_https_server::wait_c(std::size_t cn)
@@ -234,11 +233,12 @@ namespace hcpp
         };
         std::jthread t(https_service);
 
-        std::unique_ptr<int, std::function<void(int *)>> ptr(new int(0), [&work_guard /*,&executor*/](auto &&p)
+        std::unique_ptr<int, std::function<void(int *)>> ptr(new int(0), [ &work_guard,&executor](auto &&p)
                                                              {
-            // executor.stop();
             log::info("work_guard分离");
             work_guard.reset();
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            executor.stop();
             delete p; });
 
         co_await https_listener();

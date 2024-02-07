@@ -42,6 +42,7 @@ namespace hcpp
     public:
         socket_memory(tcp_socket &&sock) : sock_(std::make_unique<tcp_socket>(std::move(sock))) {}
         void check(mem_move &) override;
+        std::string host_;
 
     private:
         std::unique_ptr<tcp_socket> sock_;

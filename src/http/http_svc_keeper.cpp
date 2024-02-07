@@ -337,7 +337,9 @@ namespace hcpp
         auto sock = co_await make_socket(host, service);
         if (sock)
         {
-            co_return std::make_shared<socket_memory>(std::move(*sock));
+            auto ss= std::make_shared<socket_memory>(std::move(*sock));
+            ss->host_=host;
+            co_return ss;
         }
         co_return std::shared_ptr<memory>{};
     }
