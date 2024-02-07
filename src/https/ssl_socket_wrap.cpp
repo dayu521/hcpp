@@ -34,7 +34,6 @@ namespace hcpp
             // XXX 如何关闭呢 https://www.rfc-editor.org/rfc/rfc5246#section-7.2.1
             read_ok_ = false;
             write_ok_ = false;
-            // ssl_sock_->shutdown();
             co_return "";
         }
         write_index_ += n;
@@ -45,6 +44,7 @@ namespace hcpp
 
     awaitable<std::size_t> ssl_sock_mem::async_write_some(std::string_view s)
     {
+        auto [e, n] = co_await ssl_sock_->async_write_some(buffer(s), as_tuple(use_awaitable));
         if (s.empty())
         {
             read_ok_ = false;
@@ -52,8 +52,6 @@ namespace hcpp
             ssl_sock_->shutdown();
             co_return 0;
         }
-
-        auto [e, n] = co_await ssl_sock_->async_write_some(buffer(s), as_tuple(use_awaitable));
         co_return n;
     }
 
@@ -84,21 +82,20 @@ namespace hcpp
         buff.consume(buff.size());
         write_index_ += r.size();
         auto [i, b] = buffs_.insert({begin, std::move(r)});
-        //BUG 为什么此处有时候会断言失败
+        // BUG 为什么此处有时候会断言失败
         assert(b);
         co_return std::string_view{i->data_.data(), n};
     }
 
     awaitable<void> ssl_sock_mem::async_write_all(std::string_view s)
     {
+        auto [e, n] = co_await async_write(*ssl_sock_, buffer(s, s.size()), as_tuple(use_awaitable));
         if (s.empty())
         {
             read_ok_ = false;
             write_ok_ = false;
             ssl_sock_->shutdown();
-            co_return;
         }
-        auto [e, n] = co_await async_write(*ssl_sock_, buffer(s, s.size()), as_tuple(use_awaitable));
     }
 
     std::string_view ssl_sock_mem::get_some()
@@ -186,11 +183,11 @@ namespace hcpp
             // context.use_certificate_file("output.crt", ssl::context::file_format::pem);
             ctx_->use_certificate_chain_file("server.crt.pem");
             ctx_->use_private_key_file("server.key.pem", asio::ssl::context::pem);
-            //TODO create fake cert for proxy server
-            // ssl::host_name_verification()
-            // ctx_->set_verify_callback([](bool preverified, auto &v_ctx){
-            //     v_ctx.
-            // });
+            // TODO create fake cert for proxy server
+            //  ssl::host_name_verification()
+            //  ctx_->set_verify_callback([](bool preverified, auto &v_ctx){
+            //      v_ctx.
+            //  });
         }
         ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
     }
@@ -234,13 +231,12 @@ namespace hcpp
     {
         try
         {
-            ssl_sock_->shutdown();
+            ssl_sock_->lowest_layer().close();
         }
-        catch(const std::exception& e)
+        catch (const std::exception &e)
         {
             log::error("~ssl_sock_mem: {}", e.what());
         }
-        
     }
 
 } // namespace hcpp

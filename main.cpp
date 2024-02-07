@@ -52,8 +52,8 @@ int main(int argc, char **argv)
         }
         auto c = hcpp::config::get_config(cfg_path);
         c->config_to(hcpp::slow_dns::get_slow_dns());
-        c->save_callback([sd = hcpp::slow_dns::get_slow_dns()](auto &&cs)
-                         { sd->save_hm(cs.hm_); });
+        // c->save_callback([sd = hcpp::slow_dns::get_slow_dns()](auto &&cs)
+        //                  { sd->save_hm(cs.hm_); });
 
         asio::io_context io_context;
 
@@ -76,13 +76,14 @@ int main(int argc, char **argv)
 
         co_spawn(io_context, hs.wait_http(c->get_port()), detached);
         co_spawn(io_context, mhs.wait_c(10), detached);
+        // co_spawn(io_context, []()->asio::awaitable<void>{co_await hcpp::nc->async_send(asio::error_code{}, "ok");}, detached);
 
-        auto create_thread = [&io_context](auto self, int i) -> void
+        auto create_thread = [&](auto self, int i) -> void
         {
             if (i > 0)
             {
-                std::jthread j(self, self, i - 1);
                 spdlog::debug("线程{}创建成功",i);
+                std::jthread j(self, self, i - 1);
                 while (!io_context.stopped())
                 {
                     try

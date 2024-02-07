@@ -50,15 +50,13 @@ namespace hcpp
 
     awaitable<std::size_t> hcpp::socket_memory::async_write_some(std::string_view s)
     {
+        auto [e, n] = co_await sock_->async_write_some(buffer(s), as_tuple(use_awaitable));
         if (s.empty())
         {
             write_ok_ = false;
-            sock_->shutdown(tcp_socket::shutdown_send);
+            // sock_->shutdown(tcp_socket::shutdown_send);
             co_return 0;
         }
-
-        // HACK 不需要放到缓存
-        auto [e, n] = co_await sock_->async_write_some(buffer(s), as_tuple(use_awaitable));
 
         co_return n;
     }
@@ -81,7 +79,6 @@ namespace hcpp
         if (n == 0)
         {
             read_ok_ = false;
-            // sock_->shutdown(tcp_socket::shutdown_receive);
             co_return "";
         }
         r.resize(buff.size());
@@ -97,14 +94,13 @@ namespace hcpp
 
     awaitable<void> hcpp::socket_memory::async_write_all(std::string_view s)
     {
+        auto [e, n] = co_await async_write(*sock_, buffer(s, s.size()), as_tuple(use_awaitable));
         if (s.empty())
         {
             write_ok_ = false;
-            sock_->shutdown(tcp_socket::shutdown_send);
+            // sock_->shutdown(tcp_socket::shutdown_send);
             co_return;
         }
-
-        auto [e, n] = co_await async_write(*sock_, buffer(s, s.size()), as_tuple(use_awaitable));
     }
 
     std::string_view socket_memory::get_some()
@@ -170,19 +166,15 @@ namespace hcpp
     awaitable<std::optional<tcp_socket>> make_socket(std::string host, std::string service)
     {
         auto svc = host + ":" + service;
-        auto dns = slow_dns::get_slow_dns();
-        auto rrs = dns->resolve_cache({host, service});
-        if (!rrs)
-        {
-            rrs.emplace(co_await dns->resolve({host, service}));
-        }
+
+        auto host_list = co_await slow_dns::get_slow_dns()->resolve({host, service});
 
         auto e = co_await this_coro::executor;
         tcp_socket sock(e);
         sock.open(ip::tcp::v4());
         sock.set_option(socket_base::keep_alive(true));
 
-        if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, *rrs, asio::experimental::as_single(asio::use_awaitable), 0); error)
+        if (auto [error, remote_endpoint] = co_await asio::async_connect(sock, host_list, asio::experimental::as_single(asio::use_awaitable), 0); error)
         {
             spdlog::info("连接远程出错 -> {}", svc);
             hcpp::slow_dns::get_slow_dns()->remove_svc({host, service}, remote_endpoint.address().to_string());

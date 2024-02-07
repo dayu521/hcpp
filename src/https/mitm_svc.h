@@ -62,9 +62,13 @@ namespace hcpp
         {
             return std::make_unique<ssl_mem_factory>();
         }
+        awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service) override;
 
     public:
         mitm_svc();
+    private:
+        std::unique_ptr<ssl_mem_factory> f_;
+        std::shared_ptr<memory> m_;
     };
 
     class channel_tunnel : public tunnel, public std::enable_shared_from_this<channel_tunnel>, public mem_move

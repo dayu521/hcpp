@@ -128,41 +128,18 @@ namespace hcpp
 
     awaitable<edp_lists> slow_dns::resolve(host_edp hedp)
     {
-        if (auto r = resolve_cache(hedp); !r)
-        {
-            auto ip_edp = co_await imp_->resolve(hedp);
-            local_dns.insert({hedp, ip_edp});
+        auto ip_edp = co_await imp_->resolve(hedp);
 
-            for (auto &&i : ip_edp)
-            {
-                spdlog::debug("{} => {} {}", hedp.first, i.address().to_string(), i.port());
-            }
-            spdlog::debug("当前线程已缓存endpoint查询 {} 个", local_dns.size());
-
-            co_return ip_edp;
-        }
-        else
+        for (auto &&i : ip_edp)
         {
-            co_return r.value();
+            spdlog::debug("{} => {} {}", hedp.first, i.address().to_string(), i.port());
         }
-    }
 
-    std::optional<edp_lists> slow_dns::resolve_cache(host_edp hedp)
-    {
-
-        if (auto ip_cache = local_dns.find(hedp); ip_cache != local_dns.end())
-        {
-            return {ip_cache->second};
-        }
-        else
-        {
-            return std::nullopt;
-        }
+        co_return ip_edp;
     }
 
     void slow_dns::remove_svc(const host_edp &hedp, std::string_view ip)
     {
-        local_dns.erase(hedp);
         imp_->remove(hedp);
         // TODO 全局缓存中对应条目,降低优先级或者直接取消这个ip
     }
