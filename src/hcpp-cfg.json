@@ -55,5 +55,16 @@
             "sni_host_":"",     //假的主机名
             "close_sni_":false  //默认就是false.优先级高于sni_host_
         }
+        ,
+        {
+            
+            "host_":"www.baidu.com",
+            "svc_":"443",   //端口或服务名.例如 http https
+            "url_":"",      //暂未使用
+            "mitm_":true,   
+            "doh_":false,
+            "sni_host_":"",     //假的主机名
+            "close_sni_":false  //默认就是false.优先级高于sni_host_
+        }
     ]
 }

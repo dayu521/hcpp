@@ -20,7 +20,7 @@ linux下使用clang>16,在debug下编译
 
 windows使用最新编译器
 
-打开终端或`wt`
+打开终端或`windows terminal`
 
 ```shell
     xmake g --proxy_pac=github_mirror.lua

@@ -89,7 +89,16 @@ namespace hcpp
 
     awaitable<void> ssl_sock_mem::async_write_all(std::string_view s)
     {
-        auto [e, n] = co_await async_write(*ssl_sock_, buffer(s, s.size()), as_tuple(use_awaitable));
+        try
+        {
+            co_await async_write(*ssl_sock_, buffer(s, s.size()));
+        }
+        catch (const std::exception &e)
+        {
+            log::error("ssl_sock_mem::async_write_all error: {} \n msg {}", e.what(), s);
+        }
+
+        // auto [e, n] = co_await async_write(*ssl_sock_, buffer(s, s.size()), as_tuple(use_awaitable));
         if (s.empty())
         {
             read_ok_ = false;
@@ -159,7 +168,7 @@ namespace hcpp
         buffs_.clear();
     }
 
-    ssl_sock_mem::ssl_sock_mem(ssl_stream_type stream_type) : stream_type_(stream_type)
+    ssl_sock_mem::ssl_sock_mem(std::string_view host, std::string_view svc) : host_(host), svc_(svc)
     {
     }
 
@@ -168,35 +177,26 @@ namespace hcpp
         m.make(std::move(ssl_sock_));
     }
 
-    void ssl_sock_mem::init(tcp_socket &&sock)
+    void ssl_sock_mem::init_server(tcp_socket &&sock, server_identify si)
     {
-        if (stream_type_ == ssl_stream_type::client)
-        {
-            ctx_ = std::make_unique<ssl::context>(ssl::context::tls);
-        }
-        else
-        {
-            ctx_ = std::make_unique<ssl::context>(ssl::context::tls_server);
-            // HACK 注意 一定要在使用私钥之前调用
-            ctx_->set_password_callback([](auto a, auto b)
-                                        { return "123456"; });
-            // context.use_certificate_file("output.crt", ssl::context::file_format::pem);
-            ctx_->use_certificate_chain_file("server.crt.pem");
-            ctx_->use_private_key_file("server.key.pem", asio::ssl::context::pem);
-            // TODO create fake cert for proxy server
-            //  ssl::host_name_verification()
-            //  ctx_->set_verify_callback([](bool preverified, auto &v_ctx){
-            //      v_ctx.
-            //  });
-        }
+        stream_type_ = ssl_stream_type::server;
+        ctx_ = std::make_unique<ssl::context>(ssl::context::tls_server);
+        // HACK 注意 一定要在使用私钥之前调用
+        // ctx_->set_password_callback([](auto a, auto b)
+        //                             { return "123456"; });
+        // context.use_certificate_file("output.crt", ssl::context::file_format::pem);
+        ctx_->use_certificate_chain(asio::buffer(si.cert_pem_));
+        ctx_->use_private_key(asio::buffer(si.pbk_pem_), asio::ssl::context::pem);
+        // ctx_->use_certificate_chain_file("server.crt.pem");
+        // ctx_->use_private_key_file("server.key.pem", asio::ssl::context::pem);
         ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
     }
 
-    awaitable<void> ssl_sock_mem::init(tcp_socket::native_handle_type nh_sock, tcp_socket::protocol_type protocol)
+    void ssl_sock_mem::init_client(tcp_socket &&sock)
     {
-        ctx_ = std::make_unique<ssl::context>(stream_type_ == ssl_stream_type::client ? ssl::context::tls : ssl::context::tls_server);
-        auto &&e = co_await this_coro::executor;
-        ssl_sock_ = std::make_unique<ssl_socket>(tcp_socket(e, protocol, nh_sock), *ctx_);
+        stream_type_ = ssl_stream_type::client;
+        ctx_ = std::make_unique<ssl::context>(ssl::context::tls);
+        ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
     }
 
     awaitable<void> ssl_sock_mem::async_handshake()
@@ -225,6 +225,13 @@ namespace hcpp
             spdlog::error("关闭sni失败");
             throw std::runtime_error("关闭sni失败");
         }
+    }
+
+    void ssl_sock_mem::set_verify_callback(verify_callback cb)
+    {
+        ctx_->add_verify_path(X509_get_default_cert_dir());
+        ssl_sock_->set_verify_mode(ssl::verify_peer);
+        ssl_sock_->set_verify_callback(cb);
     }
 
     ssl_sock_mem::~ssl_sock_mem()

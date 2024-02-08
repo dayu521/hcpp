@@ -14,7 +14,7 @@ namespace hcpp
     namespace log = spdlog;
     // inline std::latch latch(1);
 
-    awaitable<void> http_do(std::unique_ptr<http_client> client, std::unique_ptr<service_keeper> sk)
+    awaitable<void> http_do(std::unique_ptr<http_client> client, std::shared_ptr<service_keeper> sk)
     {
         while (true)
         {
@@ -162,7 +162,7 @@ namespace hcpp
             {
                 auto socket = co_await acceptor.async_accept();
                 auto sk = std::make_unique<http_svc_keeper>(make_threadlocal_svc_cache(), slow_dns::get_slow_dns());
-                auto hsk = std::make_unique<hack_sk>(std::move(sk), ta_);
+                auto hsk = std::make_shared<hack_sk>(std::move(sk), ta_);
                 co_spawn(executor, http_do(std::make_unique<http_client>(std::move(socket)), std::move(hsk)), detached);
             }
             catch (const std::exception &e)
@@ -202,8 +202,12 @@ namespace hcpp
                         log::error("无法获取socket");
                         continue;
                     }
-                    hsc->set_mem(co_await std::move(*cc).make());
-                    auto sk = std::make_unique<mitm_svc>();
+                    auto sk = std::make_shared<mitm_svc>();
+                    co_await sk->make_memory(hsc->host_ ,hsc->service_);
+                    auto && si=sk->make_fake_server_id();
+
+                    hsc->set_mem(co_await std::move(*cc).make(std::move(si)));
+
                     co_spawn(executor, http_do(std::move(hsc), std::move(sk)), detached);
                 }
                 catch (const std::exception &e)

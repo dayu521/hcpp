@@ -87,8 +87,8 @@ namespace hcpp
                 tcp_socket s(c);
                 co_await asio::async_connect(s, endpoints);
 
-                auto ssl_m = std::make_shared<ssl_sock_mem>(asio::ssl::stream_base::client);
-                ssl_m->init(std::move(s));
+                auto ssl_m = std::make_shared<ssl_sock_mem>(provider.host_,"https");
+                ssl_m->init_client(std::move(s));
                 co_await ssl_m->async_handshake();
                 co_await ssl_m->wait();
 

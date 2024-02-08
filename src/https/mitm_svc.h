@@ -10,21 +10,21 @@
 #include "http/httpclient.h"
 
 #include <string>
+#include <vector>
 
 #include <asio/ssl.hpp>
 #include <asio/experimental/concurrent_channel.hpp>
 
 namespace hcpp
 {
-
     using namespace asio;
     using namespace experimental;
     using tcp_socket = use_awaitable_t<>::as_default_on_t<ip::tcp::socket>;
 
     struct channel_client
     {
-        virtual ~channel_client()=default;
-        virtual awaitable<std::shared_ptr<memory>> make() &&;
+        virtual ~channel_client() = default;
+        virtual awaitable<std::shared_ptr<memory>> make(server_identify si) &&;
         std::string host_;
         std::string service_;
         std::unique_ptr<tcp_socket> sock_;
@@ -55,7 +55,7 @@ namespace hcpp
         awaitable<std::shared_ptr<memory>> create(std::string host, std::string service) override;
     };
 
-    class mitm_svc : public http_svc_keeper
+    class mitm_svc : public http_svc_keeper, std::enable_shared_from_this<mitm_svc>
     {
     public:
         static std::unique_ptr<ssl_mem_factory> make_mem_factory()
@@ -66,9 +66,20 @@ namespace hcpp
 
     public:
         mitm_svc();
+        void set_sni_host(std::string_view host);
+        void close_sni();
+
+        awaitable<void> make_memory(std::string svc_host, std::string svc_service);
+
+        server_identify make_fake_server_id();
+
     private:
         std::unique_ptr<ssl_mem_factory> f_;
         std::shared_ptr<memory> m_;
+        std::string sni_host_;
+        bool enable_sni_ = true;
+
+        std::vector<std::string> dns_name_;
     };
 
     class channel_tunnel : public tunnel, public std::enable_shared_from_this<channel_tunnel>, public mem_move

@@ -13,6 +13,12 @@ namespace hcpp
     // using tcp_socket = use_awaitable_t<>::as_default_on_t<ip::tcp::socket>;
     // using ssl_socket = ssl::stream<tcp_socket>;
 
+    struct server_identify
+    {
+        std::string pbk_pem_;
+        std::string cert_pem_;
+    };
+
     // XXX 线程不安全
     class ssl_sock_mem : public memory
     {
@@ -42,23 +48,24 @@ namespace hcpp
 
         /// @brief
         /// @param sock 需要是准备读写状态
-        void init(tcp_socket &&sock);
-        /// @brief
-        /// @param nh_sock 同样读写状态
-        /// @param protocol 通过原始socket的endpoin获取protocol
-        awaitable<void> init(tcp_socket::native_handle_type nh_sock, tcp_socket::protocol_type protocol);
+        void init_server(tcp_socket &&sock, server_identify si);
+        void init_client(tcp_socket &&sock);
 
         awaitable<void> async_handshake();
 
-        ssl_sock_mem(ssl_stream_type stream_type);
+        ssl_sock_mem(std::string_view host, std::string_view svc);
 
         void set_sni(std::string sni);
         void close_sni();
+        using verify_callback = std::function<bool(bool, ssl::verify_context &)>;
+        void set_verify_callback(verify_callback cb);
 
     public:
         ~ssl_sock_mem();
 
     private:
+        std::string host_;
+        std::string svc_;
         ssl::stream_base::handshake_type stream_type_;
         std::unique_ptr<ssl::context> ctx_;
         // BUG https://github.com/chriskohlhoff/asio/issues/355
