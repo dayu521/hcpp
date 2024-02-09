@@ -1,6 +1,9 @@
 #include "cert.h"
 
 #include <cstring>
+#include <stdexcept>
+
+#include <openssl/bio.h>
 
 // X509_new
 namespace hcpp
@@ -77,9 +80,8 @@ namespace hcpp
 
     // Issuer
     // https://www.rfc-editor.org/rfc/rfc5280#section-4.1.2.4
-    void add_issuer(X509 *cert, std::string_view name2)
+    void set_issuer(X509 *cert, const std::vector<name_entry> &ne)
     {
-        // auto issuer = X509_NAME_new();
         //   * country,
         //   * organization,
         //   * organizational unit,
@@ -89,24 +91,10 @@ namespace hcpp
         //   x serial number.
 
         //   * locality
-        struct name_entry
-        {
-            int nid_;
-            const char *nid_val_;
-            int nid_val_len_;
-        };
-        name_entry issuer[] = {
-            {NID_countryName, "CN", sizeof("CN") - 1},
-            {NID_organizationName, "NoBody", sizeof("NoBody") - 1},
-            {NID_organizationalUnitName, "XX", sizeof("XX") - 1},
-            {NID_stateOrProvinceName, "JS", sizeof("JS") - 1},
-            {NID_commonName, "SelfCA", sizeof("SelfCA") - 1},
-            {NID_localityName, "SQ", sizeof("SQ") - 1},
-        };
 
         auto name = X509_NAME_new();
 
-        for (auto &&i : issuer)
+        for (auto &&i : ne)
         {
             X509_NAME_add_entry_by_NID(name, i.nid_, MBSTRING_ASC, (const unsigned char *)i.nid_val_, i.nid_val_len_, -1, 0);
         }
@@ -132,10 +120,18 @@ namespace hcpp
 
     // Subject
     // https://www.rfc-editor.org/rfc/rfc5280#section-4.1.2.6
-    void set_subject(X509 *cert)
+    void set_subject(X509 *cert, const std::vector<name_entry> &ne)
     {
+        auto name = X509_NAME_new();
+
+        for (auto &&i : ne)
+        {
+            X509_NAME_add_entry_by_NID(name, i.nid_, MBSTRING_ASC, (const unsigned char *)i.nid_val_, i.nid_val_len_, -1, 0);
+        }
+        X509_set_subject_name(cert, name);
+        X509_NAME_free(name);
         // X509_set_subject_name 	get X509_NAME hashes or get and set issuer or subject names
-        X509_set_subject_name(cert, X509_get_issuer_name(cert));
+        // X509_set_subject_name(cert, X509_get_issuer_name(cert));
     }
 
     // Subject Public Key Info
@@ -207,15 +203,22 @@ namespace hcpp
 
     // Subject Alternative Name
     // https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.6
-    void add_DNS_SAN(X509 *caCert, std::string_view dns_name)
+    void add_DNS_SAN(X509 *caCert, const std::vector<std::string> &dns_names)
     {
+        if (dns_names.empty())
+        {
+            return;
+        }
         GENERAL_NAMES *gens = sk_GENERAL_NAME_new_null();
 
-        GENERAL_NAME *gen_dns = GENERAL_NAME_new();
-        ASN1_IA5STRING *ia5 = ASN1_IA5STRING_new();
-        ASN1_STRING_set(ia5, dns_name.data(), dns_name.length());
-        GENERAL_NAME_set0_value(gen_dns, GEN_DNS, ia5);
-        sk_GENERAL_NAME_push(gens, gen_dns);
+        for (auto &dns_name : dns_names)
+        {
+            GENERAL_NAME *gen_dns = GENERAL_NAME_new();
+            ASN1_IA5STRING *ia5 = ASN1_IA5STRING_new();
+            ASN1_STRING_set(ia5, dns_name.data(), dns_name.length());
+            GENERAL_NAME_set0_value(gen_dns, GEN_DNS, ia5);
+            sk_GENERAL_NAME_push(gens, gen_dns);
+        }
 
         // in_addr_t ipv4 = inet_addr("10.0.0.1");
         // GENERAL_NAME *gen_ip = GENERAL_NAME_new();
@@ -272,6 +275,43 @@ namespace hcpp
         return pkey_array;
     }
 
+    X509 *make_x509(const std::string_view cert)
+    {
+        auto bp = BIO_new_mem_buf(cert.data(), cert.size());
+        if (bp == nullptr)
+        {
+            throw std::runtime_error("bio 打开失败");
+        }
+        auto c = PEM_read_bio_X509(bp, NULL, 0, NULL);
+        if (c == nullptr)
+        {
+            throw std::runtime_error("make_x509 failed");
+        }
+        BIO_free(bp);
+        return c;
+    }
+
+    EVP_PKEY *make_pkey(const std::string_view pkey)
+    {
+        auto bp = BIO_new_mem_buf(pkey.data(), pkey.size());
+        if (bp == nullptr)
+        {
+            throw std::runtime_error("bio 打开失败");
+        }
+        auto p = PEM_read_bio_PrivateKey(bp, nullptr, nullptr, nullptr);
+        if (p == nullptr)
+        {
+            throw std::runtime_error("读取密钥错误");
+        }
+        BIO_free(bp);
+        return p;
+    }
+
+    void add_issuer(X509 *cert, X509 *ca_cert)
+    {
+        X509_set_issuer_name(cert, X509_get_subject_name(ca_cert));
+    }
+
     void test()
     {
 
@@ -279,7 +319,7 @@ namespace hcpp
 
         auto pkey = generate_pkey();
         // if (pkey == NULL)
-            // CHECK(false);
+        // CHECK(false);
         // print_key(pkey);
 
         // set_version(cert);

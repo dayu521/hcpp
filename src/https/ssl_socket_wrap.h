@@ -13,9 +13,9 @@ namespace hcpp
     // using tcp_socket = use_awaitable_t<>::as_default_on_t<ip::tcp::socket>;
     // using ssl_socket = ssl::stream<tcp_socket>;
 
-    struct server_identify
+    struct subject_identify
     {
-        std::string pbk_pem_;
+        std::string pkey_pem_;
         std::string cert_pem_;
     };
 
@@ -48,7 +48,7 @@ namespace hcpp
 
         /// @brief
         /// @param sock 需要是准备读写状态
-        void init_server(tcp_socket &&sock, server_identify si);
+        void init_server(tcp_socket &&sock, subject_identify si);
         void init_client(tcp_socket &&sock);
 
         awaitable<void> async_handshake();

@@ -65,7 +65,9 @@ int main(int argc, char **argv)
 
         hcpp::httpserver hs;
         hcpp::mimt_https_server mhs;
-        c->config_to(mhs);
+        if(!c->config_to(mhs)){
+            return -1;
+        }
 
         hs.attach_tunnel([&mhs](auto &&c, auto h, auto s)
                          {

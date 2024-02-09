@@ -2,9 +2,11 @@
 #include "config.h"
 #include "dns.h"
 #include "httpserver.h"
+#include "certificate/cert.h"
 
 #include <fstream>
 #include <filesystem>
+#include <tuple>
 
 #include <spdlog/spdlog.h>
 
@@ -128,6 +130,138 @@ namespace hcpp
                 mhs.tunnel_set_.insert({i.host_, i.svc_});
             }
         }
+
+        subject_identify si;
+
+        auto si_tu = std::forward_as_tuple(cs_.ca_pkey_path_, cs_.ca_cert_path_);
+
+        // XXX 注意,这些目录不能是~开头的
+        auto replace_path = [](auto &&i)
+        {
+            if (i.starts_with("~"))
+            {
+                auto path_prefix = std::getenv("HOME");
+                if (path_prefix != nullptr)
+                {
+                    i = path_prefix + i.substr(1);
+                }
+            }
+        };
+
+        std::apply([replace_path](auto &&...argv)
+                   { ((replace_path(argv), ...)); },
+                   si_tu);
+
+        if (cs_.ca_pkey_path_.empty() || cs_.ca_cert_path_.empty())
+        { // 必须传递路径,否则生成的无法保存
+            log::error("未找到配置:ca_pkey_path_或ca_cert_path_");
+            return false;
+        }
+        else
+        {
+            if (std::filesystem::exists(cs_.ca_pkey_path_) && std::filesystem::exists(cs_.ca_cert_path_))
+            { // 加载
+                // std::apply([&si](auto &&...argv)
+                //            { (([&si](auto &i)
+                //                {
+                //                    std::ifstream ifs(i);
+                //                    if (ifs.is_open())
+                //                    {
+                //                        char buff[1024];
+                //                        while (ifs)
+                //                        {
+                //                            auto rn = ifs.read(buff, sizeof(buff)).gcount();
+                //                            si.pkey_pem_.append(buff, rn);
+                //                        }
+                //                        ifs.close();
+                //                    }
+                //                    else
+                //                    {
+                //                        log::error("config::config_to: 加载文件 {} 失败", i);
+                //                        return false;
+                //                    }
+                //                }(argv)&&
+                //                ...)); },
+                //            si_tu);
+                std::ifstream ifs(cs_.ca_pkey_path_);
+                if (ifs.is_open())
+                {
+                    char buff[1024];
+                    while (ifs)
+                    {
+                        auto rn = ifs.read(buff, sizeof(buff)).gcount();
+                        si.pkey_pem_.append(buff, rn);
+                    }
+                    ifs.close();
+                }
+                else
+                {
+                    log::error("config::config_to: 加载文件 {} 失败", cs_.ca_pkey_path_);
+                    return false;
+                }
+
+                std::ifstream ifs2(cs_.ca_cert_path_);
+                if (ifs2.is_open())
+                {
+                    char buff[1024];
+                    while (!ifs2.eof())
+                    {
+                        auto rn = ifs2.read(buff, sizeof(buff)).gcount();
+                        si.cert_pem_.append(buff, rn);
+                    }
+                    ifs2.close();
+                }
+                else
+                {
+                    log::error("config::config_to: 加载文件 {} 失败", cs_.ca_cert_path_);
+                    return false;
+                }
+            }
+            else
+            { // 重新生成
+                auto cert = make_x509();
+                auto pkey = make_pkey();
+                set_version(cert);
+                set_serialNumber(cert);
+                set_validity(cert);
+                set_issuer(cert);
+                set_subject(cert);
+                // add_SAN(cert);
+                add_ca_BS(cert);
+                add_AKI(cert);
+                add_SKI(cert);
+                add_ca_key_usage(cert);
+                set_pubkey(cert, pkey);
+                sign(cert, pkey);
+                si.pkey_pem_ = make_pem_str(pkey);
+                si.cert_pem_ = make_pem_str(cert);
+
+                std::ofstream ofs(cs_.ca_pkey_path_);
+                if (ofs.is_open())
+                {
+                    ofs << si.pkey_pem_;
+                    ofs.close();
+                }
+                else
+                {
+                    log::error("config::config_to: 打开 {} 失败", cs_.ca_pkey_path_);
+                    return false;
+                }
+
+                std::ofstream ofs2(cs_.ca_cert_path_);
+                if (ofs2.is_open())
+                {
+                    ofs2 << si.cert_pem_;
+                    ofs2.close();
+                }
+                else
+                {
+                    log::error("config::config_to: 打开 {} 失败", cs_.ca_cert_path_);
+                    return false;
+                }
+            }
+        }
+        mhs.set_ca(std::move(si));
         return true;
     }
 

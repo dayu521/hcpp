@@ -56,7 +56,7 @@ target("hcpp")
     add_packages("lsf",{public = true}) 
 
     add_includedirs("src",{public = true})
-    add_files("src/*.cpp","src/https/*.cpp","src/http/*.cpp","src/dns/*.cc")
+    add_files("src/*.cpp","src/https/*.cpp","src/http/*.cpp","src/dns/*.cc","src/certificate/*.cpp")
     add_files("main.cpp")
 
     set_policy("build.c++.modules", true)

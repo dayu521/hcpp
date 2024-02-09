@@ -1,6 +1,7 @@
 #include "mitm_svc.h"
 #include "http/tunnel.h"
 #include "certificate/cert.h"
+#include "dns.h"
 
 #include <thread>
 
@@ -39,7 +40,7 @@ namespace hcpp
     {
         enable_sni_ = false;
     }
-    awaitable<void> mitm_svc::make_memory(std::string svc_host, std::string svc_service)
+    awaitable<void> mitm_svc::make_memory(std::shared_ptr<mitm_svc> self, std::string svc_host, std::string svc_service)
     {
         try
         {
@@ -56,7 +57,7 @@ namespace hcpp
                     ssl_m->set_sni(sni_host_);
                 }
 
-                auto verify_fun = [self = shared_from_this(), host = svc_host](bool preverified, auto &v_ctx)
+                auto verify_fun = [self, host = svc_host](bool preverified, auto &v_ctx)
                 {
                     if (ssl::host_name_verification(host)(preverified, v_ctx))
                     {
@@ -95,6 +96,7 @@ namespace hcpp
                 ssl_m->set_verify_callback(verify_fun);
                 co_await ssl_m->async_handshake();
                 m_ = ssl_m;
+                co_return;
             }
             log::error("mitm_svc::wait:socket 创建失败 {}", svc_host);
             throw std::runtime_error("mitm_svc::wait:socket 创建失败");
@@ -105,16 +107,36 @@ namespace hcpp
             throw;
         }
     }
-    server_identify mitm_svc::make_fake_server_id()
+    subject_identify mitm_svc::make_fake_server_id(std::shared_ptr<subject_identify> si)
     {
         if (!m_)
         {
             throw std::runtime_error("mitm_svc::make_fake_cert:m_ is null");
         }
+        auto ca_pky = make_pkey(si->pkey_pem_);
+        auto ca_cert = make_x509(si->cert_pem_);
+
         auto cert = make_x509();
         auto pky = make_pkey();
         set_version(cert);
         set_serialNumber(cert);
+        // 默认3650天
+        set_validity(cert);
+
+        set_subject(cert);
+        // 设置目标服务器的dns
+        add_DNS_SAN(cert, dns_name_);
+
+        add_AKI(cert);
+        add_SKI(cert);
+        // 设置密钥的公钥
+        set_pubkey(cert, pky);
+        // 设置发行者为ca
+        add_issuer(cert, ca_cert);
+        // 使用ca签名
+        sign(cert, ca_pky);
+
+        return {make_pem_str(pky), make_pem_str(cert)};
     }
     awaitable<std::shared_ptr<memory>> ssl_mem_factory::create(std::string host, std::string service)
     {
@@ -170,7 +192,7 @@ namespace hcpp
         return hr;
     }
 
-    awaitable<std::shared_ptr<memory>> channel_client::make(server_identify si) &&
+    awaitable<std::shared_ptr<memory>> channel_client::make(subject_identify si) &&
     {
         auto e = co_await this_coro::executor;
         auto &&protocol = sock_->local_endpoint().protocol();

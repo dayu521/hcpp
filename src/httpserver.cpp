@@ -3,6 +3,7 @@
 #include "http/httpclient.h"
 #include "http/tunnel.h"
 #include "http/http_svc_keeper.h"
+#include "https/ssl_socket_wrap.h"
 
 #include <limits>
 #include <chrono>
@@ -179,13 +180,16 @@ namespace hcpp
 
     awaitable<void> mimt_https_server::wait_c(std::size_t cn)
     {
+        if(!ca_subject_){
+            throw std::runtime_error("ca_subject_ is null");
+        }
         // FIXME 这个需要用智能指针保证executor在https线程时是存在的吗?
         io_context executor;
         channel_ = std::make_shared<socket_channel>(co_await this_coro::executor, cn);
 
         co_await nc->async_send(asio::error_code{}, "ok");
         // 在当前协程运行
-        auto https_listener = [&executor, c = channel_]() -> awaitable<void>
+        auto https_listener = [&executor, c = channel_,ca_subject=ca_subject_]() -> awaitable<void>
         {
             for (;;)
             {
@@ -203,8 +207,8 @@ namespace hcpp
                         continue;
                     }
                     auto sk = std::make_shared<mitm_svc>();
-                    co_await sk->make_memory(hsc->host_ ,hsc->service_);
-                    auto && si=sk->make_fake_server_id();
+                    co_await sk->make_memory(sk,hsc->host_ ,hsc->service_);
+                    auto && si=sk->make_fake_server_id(ca_subject);
 
                     hsc->set_mem(co_await std::move(*cc).make(std::move(si)));
 
@@ -256,6 +260,11 @@ namespace hcpp
             return std::make_optional(std::make_shared<channel_tunnel>(channel_));
         }
         return std::nullopt;
+    }
+
+    void mimt_https_server::set_ca(subject_identify ca_subject)
+    {
+        ca_subject_=std::make_shared<subject_identify>(std::move(ca_subject));
     }
 
 } // namespace hcpp

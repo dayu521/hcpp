@@ -2,7 +2,6 @@
 #define SRC_HTTPS_MIMT_SVC
 
 #include "asio_coroutine_net.h"
-#include "dns.h"
 #include "http/http_svc_keeper.h"
 #include "hmemory.h"
 #include "http/tunnel.h"
@@ -24,7 +23,7 @@ namespace hcpp
     struct channel_client
     {
         virtual ~channel_client() = default;
-        virtual awaitable<std::shared_ptr<memory>> make(server_identify si) &&;
+        virtual awaitable<std::shared_ptr<memory>> make(subject_identify si) &&;
         std::string host_;
         std::string service_;
         std::unique_ptr<tcp_socket> sock_;
@@ -69,9 +68,9 @@ namespace hcpp
         void set_sni_host(std::string_view host);
         void close_sni();
 
-        awaitable<void> make_memory(std::string svc_host, std::string svc_service);
+        awaitable<void> make_memory(std::shared_ptr<mitm_svc> self, std::string svc_host, std::string svc_service);
 
-        server_identify make_fake_server_id();
+        subject_identify make_fake_server_id(std::shared_ptr<subject_identify> si);
 
     private:
         std::unique_ptr<ssl_mem_factory> f_;

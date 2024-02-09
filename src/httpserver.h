@@ -71,6 +71,8 @@ namespace hcpp
     //     tls_client(tcp_socket socket) : socket_(std::move(socket)) {}
     // };
 
+    struct subject_identify;
+
     class mimt_https_server
     {
     public:
@@ -80,8 +82,11 @@ namespace hcpp
         std::optional<std::shared_ptr<tunnel>> find_tunnel(std::string_view svc_host, std::string_view svc_service);
 
         std::set<std::pair<std::string, std::string>> tunnel_set_;
+
+        void set_ca(subject_identify ca_subject);
     private:
         std::shared_ptr<socket_channel> channel_;
+        std::shared_ptr<subject_identify> ca_subject_;
     };
 
     using notify_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::string)>>;

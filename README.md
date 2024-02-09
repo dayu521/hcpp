@@ -12,6 +12,8 @@
 
 [harddns](https://github.com/stealth/harddns)
 
+[openssl-sign-by-ca](https://github.com/zozs/openssl-sign-by-ca/)
+
 ### 编译
 
 需要c++20,使用xmake构建
@@ -30,16 +32,19 @@ windows使用最新编译器
     xmake run hcpp
 ```
 
-#### 例子
+#### 运行
 
-当前测试了三个主机,`github.com`,`gitee.com`,`www.baidu.com`.这三者由mitm代理.使用下面的自签名的`ca证书`,签名了服务的证书.服务的证书包含了上述三个主机名
+当前会在配置文件指定的目录(例如 ~/.config/hcpp/)下生成自签名的ca密钥和ca证书
 
-其余主机都是正常的http proxy或者http tunnel代理
+浏览器需要信任该ca证书
 
-[ca证书](doc/cert/ca.crt),可以导入浏览器
+使用curl直接进行测试
 
-下面的证书和密钥需要放到程序运行目录
+```shell
+    curl -i -x http://localhost:55555 -v --cacert ~/.config/hcpp/ca.cert.pem  'https://gitee.com' 
+```
 
-- 使用的[证书](doc/cert/server.crt.pem),由密钥生成,被ca签名
-
-- 使用的[密钥](doc/cert/server.key.pem)
+或者
+```shell
+    curl -i -x http://localhost:55555 -vk  'https://gitee.com' 
+```

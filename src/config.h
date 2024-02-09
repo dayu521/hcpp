@@ -46,16 +46,16 @@ namespace hcpp
     {
         // TODO 可以重载json解析 uint16_t
         int port_ = 55555;
-        std::string ca_path_ = "";
-        std::string pkb_path_ = "";
+        std::string ca_cert_path_ = "";
+        std::string ca_pkey_path_ = "";
         std::string host_mapping_path_ = "";
         std::string proxy_service_path_ = "";
         std::vector<proxy_service> proxy_service_;
         std::vector<dns_provider> dns_provider_ = {{.provider_ = "1.1.1.1", .host_ = "1.1.1.1"}, {.provider_ = "ali", .host_ = "dns.alidns.com"}};
 
         JS_OBJECT(JS_MEMBER(port_),
-                  JS_MEMBER(ca_path_),
-                  JS_MEMBER(pkb_path_),
+                  JS_MEMBER(ca_cert_path_),
+                  JS_MEMBER(ca_pkey_path_),
                   JS_MEMBER(host_mapping_path_),
                   JS_MEMBER(proxy_service_path_),
                   JS_MEMBER(proxy_service_),

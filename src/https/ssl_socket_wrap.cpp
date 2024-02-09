@@ -177,7 +177,7 @@ namespace hcpp
         m.make(std::move(ssl_sock_));
     }
 
-    void ssl_sock_mem::init_server(tcp_socket &&sock, server_identify si)
+    void ssl_sock_mem::init_server(tcp_socket &&sock, subject_identify si)
     {
         stream_type_ = ssl_stream_type::server;
         ctx_ = std::make_unique<ssl::context>(ssl::context::tls_server);
@@ -186,7 +186,7 @@ namespace hcpp
         //                             { return "123456"; });
         // context.use_certificate_file("output.crt", ssl::context::file_format::pem);
         ctx_->use_certificate_chain(asio::buffer(si.cert_pem_));
-        ctx_->use_private_key(asio::buffer(si.pbk_pem_), asio::ssl::context::pem);
+        ctx_->use_private_key(asio::buffer(si.pkey_pem_), asio::ssl::context::pem);
         // ctx_->use_certificate_chain_file("server.crt.pem");
         // ctx_->use_private_key_file("server.key.pem", asio::ssl::context::pem);
         ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
@@ -209,6 +209,7 @@ namespace hcpp
         if (stream_type_ == ssl::stream_base::server)
         {
             spdlog::error("检测ssl::stream_base::server,不设置sni");
+            return;
         }
         // https://github.com/boostorg/beast/blob/develop/example/http/client/sync-ssl/http_client_sync_ssl.cpp#L73
         if (!SSL_set_tlsext_host_name(ssl_sock_->native_handle(), sni.c_str()))
