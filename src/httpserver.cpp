@@ -4,9 +4,11 @@
 #include "http/tunnel.h"
 #include "http/http_svc_keeper.h"
 #include "https/ssl_socket_wrap.h"
+#include "config.h"
 
 #include <limits>
 #include <chrono>
+#include <map>
 
 #include <spdlog/spdlog.h>
 
@@ -52,8 +54,8 @@ namespace hcpp
 
                         auto w = co_await sk->wait(req.host_, req.port_);
 
-                        log::info("http_do:请求开始\n{}{}",req.host_,req.url_);
-                        auto start_point = std::chrono::high_resolution_clock::now();  
+                        log::info("http_do:请求开始\n{}{}", req.host_, req.url_);
+                        auto start_point = std::chrono::high_resolution_clock::now();
                         co_await w->async_write_all(req_line);
                         if (req.chunk_coding_)
                         {
@@ -112,7 +114,8 @@ namespace hcpp
                                     {
                                         str = co_await w->async_load_some();
                                         co_await ss->async_write_all(str);
-                                        if(str.empty()){
+                                        if (str.empty())
+                                        {
                                             break;
                                         }
                                         w->remove_some(str.size());
@@ -123,9 +126,9 @@ namespace hcpp
                                 {
                                     ;
                                 }
-                                auto end_point = std::chrono::high_resolution_clock::now();  
-                                auto du=std::chrono::duration_cast<std::chrono::milliseconds>(end_point - start_point).count();
-                                log::info("http_do:请求结束\n{}{}\n间隔 {}ms ",req.host_,req.url_,du);
+                                auto end_point = std::chrono::high_resolution_clock::now();
+                                auto du = std::chrono::duration_cast<std::chrono::milliseconds>(end_point - start_point).count();
+                                log::info("http_do:请求结束\n{}{}\n间隔 {}ms ", req.host_, req.url_, du);
                                 continue;
                             }
                         }
@@ -178,18 +181,30 @@ namespace hcpp
         ta_ = w;
     }
 
-    awaitable<void> mimt_https_server::wait_c(std::size_t cn)
+    static thread_local std::unordered_map<std::string, subject_identify> ca_subject_map;
+
+    awaitable<void> mimt_https_server::wait_c(std::size_t cn, std::vector<proxy_service> ps)
     {
-        if(!ca_subject_){
+        if (!ca_subject_)
+        {
             throw std::runtime_error("ca_subject_ is null");
         }
+
+        std::unordered_map<std::string, proxy_service> ps_map;
+        for (auto &&i : ps)
+        {
+            auto k = i.host_;
+            ps_map.emplace(k, std::move(i));
+        }
+
+        const decltype(ps_map) &cr_ps_map = ps_map;
         // FIXME 这个需要用智能指针保证executor在https线程时是存在的吗?
         io_context executor;
         channel_ = std::make_shared<socket_channel>(co_await this_coro::executor, cn);
 
         co_await nc->async_send(asio::error_code{}, "ok");
         // 在当前协程运行
-        auto https_listener = [&executor, c = channel_,ca_subject=ca_subject_]() -> awaitable<void>
+        auto https_listener = [&executor, c = channel_, cr_ps_map, ca_subject = ca_subject_]() -> awaitable<void>
         {
             for (;;)
             {
@@ -207,8 +222,26 @@ namespace hcpp
                         continue;
                     }
                     auto sk = std::make_shared<mitm_svc>();
-                    co_await sk->make_memory(sk,hsc->host_ ,hsc->service_);
-                    auto && si=sk->make_fake_server_id(ca_subject);
+                    part_cert_info pci{};
+
+                    subject_identify si{};
+                    if (auto i = cr_ps_map.find(hsc->host_); i != cr_ps_map.end())
+                    {
+                        sk->set_sni_host(i->second.sni_host_);
+                        if (i->second.close_sni_)
+                            sk->close_sni();
+                    }
+                    co_await sk->make_memory(hsc->host_, hsc->service_, pci);
+                    if (auto i = ca_subject_map.find(hsc->host_); i != ca_subject_map.end())
+                    {
+                        si = i->second;
+                    }
+                    else
+                    {
+                        log::info("mimt_https_server::wait_c:创建ca_subject_map缓存 => {}", hsc->host_);
+                        si = sk->make_fake_server_id(pci.dns_name_, ca_subject);
+                        ca_subject_map.insert({hsc->host_, si});
+                    }
 
                     hsc->set_mem(co_await std::move(*cc).make(std::move(si)));
 
@@ -241,7 +274,7 @@ namespace hcpp
         };
         std::jthread t(https_service);
 
-        std::unique_ptr<int, std::function<void(int *)>> ptr(new int(0), [ &work_guard,&executor](auto &&p)
+        std::unique_ptr<int, std::function<void(int *)>> ptr(new int(0), [&work_guard, &executor](auto &&p)
                                                              {
             log::info("work_guard分离");
             work_guard.reset();
@@ -264,7 +297,7 @@ namespace hcpp
 
     void mimt_https_server::set_ca(subject_identify ca_subject)
     {
-        ca_subject_=std::make_shared<subject_identify>(std::move(ca_subject));
+        ca_subject_ = std::make_shared<subject_identify>(std::move(ca_subject));
     }
 
 } // namespace hcpp

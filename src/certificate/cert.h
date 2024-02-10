@@ -49,6 +49,7 @@ namespace hcpp
 
     std::string make_pem_str(X509 *cert);
     std::string make_pem_str(EVP_PKEY *pkey);
+    std::string make_pem_str(X509_PUBKEY *pkey);
 
     X509 *make_x509(const std::string_view cert);
     EVP_PKEY *make_pkey(const std::string_view pkey);

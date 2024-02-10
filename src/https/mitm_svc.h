@@ -48,13 +48,21 @@ namespace hcpp
         std::string service_;
     };
 
+    struct part_cert_info
+    {
+        std::vector<std::string> dns_name_;
+        std::string pubkey_;
+    };
+
     class ssl_mem_factory : public mem_factory
     {
     public:
         awaitable<std::shared_ptr<memory>> create(std::string host, std::string service) override;
     };
 
-    class mitm_svc : public http_svc_keeper, std::enable_shared_from_this<mitm_svc>
+    // https://zh.cppreference.com/w/cpp/memory/enable_shared_from_this
+    // XXX std::shared_ptr 的构造函数检测无歧义且可访问的 enable_shared_from_this 基类（即强制公开继承）
+    class mitm_svc : public http_svc_keeper, public std::enable_shared_from_this<mitm_svc>
     {
     public:
         static std::unique_ptr<ssl_mem_factory> make_mem_factory()
@@ -68,17 +76,15 @@ namespace hcpp
         void set_sni_host(std::string_view host);
         void close_sni();
 
-        awaitable<void> make_memory(std::shared_ptr<mitm_svc> self, std::string svc_host, std::string svc_service);
+        awaitable<void> make_memory(std::string svc_host, std::string svc_service, part_cert_info &pci);
 
-        subject_identify make_fake_server_id(std::shared_ptr<subject_identify> si);
+        subject_identify make_fake_server_id(const std::vector<std::string> &dns_name, std::shared_ptr<subject_identify> ca_si);
 
     private:
         std::unique_ptr<ssl_mem_factory> f_;
         std::shared_ptr<memory> m_;
         std::string sni_host_;
         bool enable_sni_ = true;
-
-        std::vector<std::string> dns_name_;
     };
 
     class channel_tunnel : public tunnel, public std::enable_shared_from_this<channel_tunnel>, public mem_move

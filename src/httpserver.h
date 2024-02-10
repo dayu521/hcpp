@@ -72,11 +72,12 @@ namespace hcpp
     // };
 
     struct subject_identify;
+    struct proxy_service;
 
     class mimt_https_server
     {
     public:
-        awaitable<void> wait_c(std::size_t cn);
+        awaitable<void> wait_c(std::size_t cn,std::vector<proxy_service> ps);
         awaitable<void> wait(uint16_t port);
 
         std::optional<std::shared_ptr<tunnel>> find_tunnel(std::string_view svc_host, std::string_view svc_service);

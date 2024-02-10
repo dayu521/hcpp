@@ -275,6 +275,17 @@ namespace hcpp
         return pkey_array;
     }
 
+    std::string make_pem_str(X509_PUBKEY *pkey)
+    {
+        BIO *bio = BIO_new(BIO_s_mem());
+        PEM_write_bio_X509_PUBKEY(bio, pkey);
+        auto pkey_size = BIO_pending(bio);
+        auto pubkey_array = new char[pkey_size + 1];
+        BIO_read(bio, pubkey_array, pkey_size);
+        BIO_free_all(bio);
+        return pubkey_array;
+    }
+
     X509 *make_x509(const std::string_view cert)
     {
         auto bp = BIO_new_mem_buf(cert.data(), cert.size());

@@ -81,6 +81,7 @@ namespace hcpp
         bool config_to(mimt_https_server &mhs);
 
         uint16_t get_port() const;
+        std::vector<proxy_service> get_proxy_service() const;
 
         void save_callback(std::function<void(config &)> sc);
 

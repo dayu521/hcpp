@@ -40,7 +40,7 @@ namespace hcpp
     {
         enable_sni_ = false;
     }
-    awaitable<void> mitm_svc::make_memory(std::shared_ptr<mitm_svc> self, std::string svc_host, std::string svc_service)
+    awaitable<void> mitm_svc::make_memory(std::string svc_host, std::string svc_service, part_cert_info &pci)
     {
         try
         {
@@ -56,8 +56,7 @@ namespace hcpp
                 {
                     ssl_m->set_sni(sni_host_);
                 }
-
-                auto verify_fun = [self, host = svc_host](bool preverified, auto &v_ctx)
+                auto verify_fun = [&pci, host = svc_host](bool preverified, auto &v_ctx)
                 {
                     if (ssl::host_name_verification(host)(preverified, v_ctx))
                     {
@@ -68,7 +67,7 @@ namespace hcpp
                         // echo -n | openssl s_client -connect gitee.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p'  | openssl x509 -text -noout
                         // 获取目标主机证书中的subjectAltName
                         // https://www.openssl.org/docs/manmaster/man3/X509_get_ext_d2i.html
-                        if (GENERAL_NAMES *names = (GENERAL_NAMES *)X509_get_ext_d2i(cert, NID_subject_alt_name, nullptr, nullptr); names != nullptr)
+                        if (auto names = (GENERAL_NAMES *)X509_get_ext_d2i(cert, NID_subject_alt_name, nullptr, nullptr); names != nullptr)
                         {
 
                             for (int j = 0; j < sk_GENERAL_NAME_num(names); j++)
@@ -79,12 +78,14 @@ namespace hcpp
                                     // 如果是DNS类型的Subject Alternative Name
                                     // 获取DNS名称
                                     char *dns_name = (char *)ASN1_STRING_get0_data(name->d.dNSName);
-                                    log::error("DNS Name: {}", dns_name);
-                                    self->dns_name_.push_back(dns_name);
+                                    log::info("DNS Name: {}", dns_name);
+                                    pci.dns_name_.push_back(dns_name);
                                 }
                                 // 可以根据需要处理其他类型的Subject Alternative Name
                             }
                         }
+
+                        pci.pubkey_ = make_pem_str(X509_get_X509_PUBKEY(cert));
                         return true;
                     }
                     else
@@ -107,14 +108,10 @@ namespace hcpp
             throw;
         }
     }
-    subject_identify mitm_svc::make_fake_server_id(std::shared_ptr<subject_identify> si)
+    subject_identify mitm_svc::make_fake_server_id(const std::vector<std::string> &dns_name, std::shared_ptr<subject_identify> ca_si)
     {
-        if (!m_)
-        {
-            throw std::runtime_error("mitm_svc::make_fake_cert:m_ is null");
-        }
-        auto ca_pky = make_pkey(si->pkey_pem_);
-        auto ca_cert = make_x509(si->cert_pem_);
+        auto ca_pky = make_pkey(ca_si->pkey_pem_);
+        auto ca_cert = make_x509(ca_si->cert_pem_);
 
         auto cert = make_x509();
         auto pky = make_pkey();
@@ -125,7 +122,7 @@ namespace hcpp
 
         set_subject(cert);
         // 设置目标服务器的dns
-        add_DNS_SAN(cert, dns_name_);
+        add_DNS_SAN(cert, dns_name);
 
         add_AKI(cert);
         add_SKI(cert);

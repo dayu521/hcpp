@@ -236,11 +236,14 @@ namespace hcpp
                 si.pkey_pem_ = make_pem_str(pkey);
                 si.cert_pem_ = make_pem_str(cert);
 
+                std::filesystem::path p1(cs_.ca_pkey_path_);
+                std::filesystem::create_directories(p1.parent_path());
                 std::ofstream ofs(cs_.ca_pkey_path_);
                 if (ofs.is_open())
                 {
                     ofs << si.pkey_pem_;
                     ofs.close();
+                    log::warn("config::config_to: 保存{}成功",cs_.ca_pkey_path_);
                 }
                 else
                 {
@@ -248,11 +251,14 @@ namespace hcpp
                     return false;
                 }
 
+                std::filesystem::path p2(cs_.ca_cert_path_);
+                std::filesystem::create_directories(p2.parent_path());
                 std::ofstream ofs2(cs_.ca_cert_path_);
                 if (ofs2.is_open())
                 {
                     ofs2 << si.cert_pem_;
                     ofs2.close();
+                    log::warn("config::config_to: 保存{}成功",cs_.ca_cert_path_);
                 }
                 else
                 {
@@ -272,6 +278,11 @@ namespace hcpp
             spdlog::warn("端口号有问题,将被不确定转换: {}", cs_.port_);
         }
         return cs_.port_;
+    }
+
+    std::vector<proxy_service> config::get_proxy_service() const
+    {
+        return cs_.proxy_service_;
     }
 
     void hcpp::config::save_callback(std::function<void(config &)> sc)
