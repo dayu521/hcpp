@@ -46,7 +46,7 @@ jobs:
         if: steps.cache-xmake.outputs.cache-hit != 'true'
         run: |
             # xmake g --pkg_installdir=./cache/.xmake/packages
-            xmake f -vD -y 
+            xmake f -vD -y --github_action=true
         
       - name: Build
         run: |

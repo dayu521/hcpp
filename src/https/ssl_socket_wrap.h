@@ -59,7 +59,7 @@ namespace hcpp
         void set_sni(std::string sni);
         void close_sni();
         using verify_callback = std::function<bool(bool, ssl::verify_context &)>;
-        void set_verify_callback(verify_callback cb,std::optional<string> verify_path=std::nullopt);
+        void set_verify_callback(verify_callback cb,std::optional<std::string> verify_path=std::nullopt);
 
     public:
         ~ssl_sock_mem();

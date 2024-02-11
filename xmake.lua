@@ -6,13 +6,21 @@ set_warnings("all")
 
 set_languages("c++20")
 
+option("github_action")
+
+local lsf_url="https://gitee.com/californiacat/lsf.git"
+
+if has_config("github_action") then
+    lsf_url="https://github.com/dayu521/lsf.git"
+end
+
 -- 设置代理镜像
 -- xmake g --proxy_pac=github_mirror.lua
 -- https://xmake.io/#/zh-cn/package/remote_package?id=%e4%bd%bf%e7%94%a8%e8%87%aa%e5%bb%ba%e7%a7%81%e6%9c%89%e5%8c%85%e4%bb%93%e5%ba%93
 package("lsf")
-    set_homepage("https://gitee.com/californiacat/lsf.git")
+    set_homepage(lsf_url)
     set_description("json.")
-    set_urls("https://gitee.com/californiacat/lsf.git")
+    set_urls(lsf_url)
     -- set_sourcedir(path.join(os.scriptdir(), "lib/lsf"))
     
     on_install(function (package)
@@ -31,20 +39,14 @@ if is_os("windows") then
     -- add_defines("HCPP_XMAKE_WINDOWS")
 
     add_requires("asio 1.28.0",{verify = false})
-    add_requires("openssl3",{verify = false},{system = false})
+    add_requires("openssl3",{verify = false})
     add_requires("lsf")
     openssl_package_name = "openssl3"
     platform_cpp_file="src/os/windows.cpp"
 
-    -- option("openssl_no_sys")
-    --     set_default(false)
-    --     after_check(function (option)
-    --         if option:enabled() then
-    --             add_requireconfs(openssl_package_name,{system = false})
-    --         end
-    --     end)
-        
-    -- add_options("openssl_no_sys")
+    if has_config("github_action") then
+        add_requireconfs(openssl_package_name,{system = false})
+    end
 else
     set_allowedmodes("debug")
     set_defaultmode("debug")
@@ -111,4 +113,8 @@ target("a_test")
 --     set_formats("srczip", "srctargz")
 --     add_sourcefiles("(./**)")
 
--- includes("test")
+includes("@builtin/xpack")
+xpack("hcpp")
+    set_formats("zip")
+    add_installfiles("src/hcpp-cfg.json",{prefixdir = "bin"})
+    add_targets("hcpp")

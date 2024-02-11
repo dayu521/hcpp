@@ -227,7 +227,7 @@ namespace hcpp
         }
     }
 
-    void ssl_sock_mem::set_verify_callback(verify_callback cb, std::optional<string> verify_path)
+    void ssl_sock_mem::set_verify_callback(verify_callback cb, std::optional<std::string> verify_path)
     {
         if (!verify_path)
         {

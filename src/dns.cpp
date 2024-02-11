@@ -61,6 +61,9 @@ namespace hcpp
         awaitable<void> async_resolve(std::shared_ptr<channel> cc, host_edp hedp);
 
         void remove(host_edp hedp);
+
+        //BUG 析构时使用锁
+        ~slow_dns_imp()=default;
     };
     namespace
     {
