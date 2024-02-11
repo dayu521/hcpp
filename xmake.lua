@@ -31,16 +31,20 @@ if is_os("windows") then
     -- add_defines("HCPP_XMAKE_WINDOWS")
 
     add_requires("asio 1.28.0",{verify = false})
-    add_requires("openssl3",{verify = false})
+    add_requires("openssl3",{verify = false},{system = false})
     add_requires("lsf")
     openssl_package_name = "openssl3"
     platform_cpp_file="src/os/windows.cpp"
 
-    option("openssl_no_sys")
-        set_default(false)
-        add_requireconfs(openssl_package_name,{system = false})
+    -- option("openssl_no_sys")
+    --     set_default(false)
+    --     after_check(function (option)
+    --         if option:enabled() then
+    --             add_requireconfs(openssl_package_name,{system = false})
+    --         end
+    --     end)
         
-    add_options("openssl_no_sys")
+    -- add_options("openssl_no_sys")
 else
     set_allowedmodes("debug")
     set_defaultmode("debug")

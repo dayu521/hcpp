@@ -46,15 +46,15 @@ jobs:
         if: steps.cache-xmake.outputs.cache-hit != 'true'
         run: |
             # xmake g --pkg_installdir=./cache/.xmake/packages
-            xmake f -vD -y -F --openssl_no_sys=y
+            xmake f -vD -y 
         
       - name: Build
         run: |
-            xmake -vrDw -y -F 
+            xmake -vrDw -y 
 
       - name: Package
         run: |
-            xmake pack -y -o ./ -F 
+            xmake pack -y -o ./ 
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
