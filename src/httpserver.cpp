@@ -181,7 +181,7 @@ namespace hcpp
         ta_ = w;
     }
 
-    static thread_local std::unordered_map<std::string, subject_identify> ca_subject_map;
+    static thread_local std::unordered_map<std::string, subject_identify> server_subject_map;
 
     awaitable<void> mimt_https_server::wait_c(std::size_t cn, std::vector<proxy_service> ps)
     {
@@ -210,7 +210,6 @@ namespace hcpp
             {
                 try
                 {
-                    // 放到单独的协程运行
                     std::shared_ptr<channel_client> cc = co_await c->async_receive();
                     auto hsc = std::make_unique<https_client>();
                     hsc->host_ = cc->host_;
@@ -221,6 +220,7 @@ namespace hcpp
                         log::error("无法获取socket");
                         continue;
                     }
+                    //TODO 抽象工厂方法
                     auto sk = std::make_shared<mitm_svc>();
                     part_cert_info pci{};
 
@@ -232,15 +232,15 @@ namespace hcpp
                             sk->close_sni();
                     }
                     co_await sk->make_memory(hsc->host_, hsc->service_, pci);
-                    if (auto i = ca_subject_map.find(hsc->host_); i != ca_subject_map.end())
+                    if (auto i = server_subject_map.find(hsc->host_); i != server_subject_map.end())
                     {
                         si = i->second;
                     }
                     else
                     {
-                        log::info("mimt_https_server::wait_c:创建ca_subject_map缓存 => {}", hsc->host_);
+                        log::info("mimt_https_server::wait_c:创建server_subject_map缓存 => {}", hsc->host_);
                         si = sk->make_fake_server_id(pci.dns_name_, ca_subject);
-                        ca_subject_map.insert({hsc->host_, si});
+                        server_subject_map.insert({hsc->host_, si});
                     }
 
                     hsc->set_mem(co_await std::move(*cc).make(std::move(si)));
@@ -298,6 +298,11 @@ namespace hcpp
     void mimt_https_server::set_ca(subject_identify ca_subject)
     {
         ca_subject_ = std::make_shared<subject_identify>(std::move(ca_subject));
+    }
+
+    void mimt_https_server::set_root_verify_store_path(std::string_view root_verify_store_path)
+    {
+        root_verify_store_path_=root_verify_store_path;
     }
 
 } // namespace hcpp

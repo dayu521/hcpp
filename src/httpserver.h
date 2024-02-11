@@ -16,7 +16,6 @@
 
 namespace hcpp
 {
-
     using asio::awaitable;
     using namespace asio::experimental;
 
@@ -85,9 +84,11 @@ namespace hcpp
         std::set<std::pair<std::string, std::string>> tunnel_set_;
 
         void set_ca(subject_identify ca_subject);
+        void set_root_verify_store_path(std::string_view root_verify_store_path);
     private:
         std::shared_ptr<socket_channel> channel_;
         std::shared_ptr<subject_identify> ca_subject_;
+        std::string root_verify_store_path_;
     };
 
     using notify_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::string)>>;

@@ -4,6 +4,7 @@
 #include "asio_coroutine_net.h"
 
 #include <set>
+#include <optional>
 
 #include <asio/ssl.hpp>
 
@@ -58,7 +59,7 @@ namespace hcpp
         void set_sni(std::string sni);
         void close_sni();
         using verify_callback = std::function<bool(bool, ssl::verify_context &)>;
-        void set_verify_callback(verify_callback cb);
+        void set_verify_callback(verify_callback cb,std::optional<string> verify_path=std::nullopt);
 
     public:
         ~ssl_sock_mem();

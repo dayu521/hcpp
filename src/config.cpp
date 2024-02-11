@@ -144,6 +144,8 @@ namespace hcpp
                 if (path_prefix != nullptr)
                 {
                     i = path_prefix + i.substr(1);
+                }else{
+                    log::warn("没有HOME系统变量,不处理 ~");
                 }
             }
         };

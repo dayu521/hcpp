@@ -2,17 +2,6 @@ set_project("hcpp")
 set_xmakever("2.8.6")
 add_rules("mode.debug", "mode.release")
 
-if is_os("linux") then
-    set_allowedmodes("debug")
-    set_defaultmode("debug")
-    set_toolchains("clang")
-elseif is_os("windows") then
-    set_encodings("utf-8")
-    -- add_cxxflags("/source-charset:utf-8")
-else
-
-end
-
 set_warnings("all")
 
 set_languages("c++20")
@@ -34,16 +23,34 @@ package("lsf")
 package_end()
 
 local openssl_package_name = ""  
+    
+local platform_cpp_file=""
+
 if is_os("windows") then
+    set_encodings("utf-8")
+    -- add_defines("HCPP_XMAKE_WINDOWS")
+
     add_requires("asio 1.28.0",{verify = false})
     add_requires("openssl3",{verify = false})
     add_requires("lsf")
     openssl_package_name = "openssl3"
+    platform_cpp_file="src/os/windows.cpp"
+
+    option("openssl_no_sys")
+        set_default(false)
+        add_requireconfs(openssl_package_name,{system = false})
+        
+    add_options("openssl_no_sys")
 else
+    set_allowedmodes("debug")
+    set_defaultmode("debug")
+    set_toolchains("clang")
+
     add_requires("asio >=1.28.0",{verify = false})
     add_requires("openssl >=3.2.0",{verify = false})
     add_requires("lsf" ,{debug = true})
     openssl_package_name = "openssl"
+    platform_cpp_file="src/os/linux.cpp"
 end
 
 add_requires("spdlog >=1.12.0")
@@ -57,6 +64,7 @@ target("hcpp")
 
     add_includedirs("src",{public = true})
     add_files("src/*.cpp","src/https/*.cpp","src/http/*.cpp","src/dns/*.cc","src/certificate/*.cpp")
+    add_files(platform_cpp_file)
     add_files("main.cpp")
 
     set_policy("build.c++.modules", true)

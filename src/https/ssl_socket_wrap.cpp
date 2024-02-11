@@ -1,5 +1,6 @@
 #include "ssl_socket_wrap.h"
 #include "http/thack.h"
+#include "os/common.h"
 
 #include <asio/streambuf.hpp>
 #include <asio/read_until.hpp>
@@ -187,8 +188,6 @@ namespace hcpp
         // context.use_certificate_file("output.crt", ssl::context::file_format::pem);
         ctx_->use_certificate_chain(asio::buffer(si.cert_pem_));
         ctx_->use_private_key(asio::buffer(si.pkey_pem_), asio::ssl::context::pem);
-        // ctx_->use_certificate_chain_file("server.crt.pem");
-        // ctx_->use_private_key_file("server.key.pem", asio::ssl::context::pem);
         ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
     }
 
@@ -228,9 +227,14 @@ namespace hcpp
         }
     }
 
-    void ssl_sock_mem::set_verify_callback(verify_callback cb)
+    void ssl_sock_mem::set_verify_callback(verify_callback cb, std::optional<string> verify_path)
     {
-        ctx_->add_verify_path(X509_get_default_cert_dir());
+        if (!verify_path)
+        {
+            set_platform_default_verify_store(*ctx_);
+        }else{
+            ctx_->add_verify_path(*verify_path);
+        } 
         ssl_sock_->set_verify_mode(ssl::verify_peer);
         ssl_sock_->set_verify_callback(cb);
     }
