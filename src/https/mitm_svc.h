@@ -10,6 +10,7 @@
 
 #include <string>
 #include <vector>
+#include <functional>
 
 #include <asio/ssl.hpp>
 #include <asio/experimental/concurrent_channel.hpp>
@@ -75,8 +76,9 @@ namespace hcpp
         mitm_svc();
         void set_sni_host(std::string_view host);
         void close_sni();
+        void add_SAN_collector(part_cert_info &pci);
 
-        awaitable<void> make_memory(std::string svc_host, std::string svc_service, part_cert_info &pci);
+        awaitable<void> make_memory(std::string svc_host, std::string svc_service);
 
         subject_identify make_fake_server_id(const std::vector<std::string> &dns_name, std::shared_ptr<subject_identify> ca_si);
 
@@ -85,6 +87,8 @@ namespace hcpp
         std::shared_ptr<memory> m_;
         std::string sni_host_;
         bool enable_sni_ = true;
+
+        std::function<bool (bool preverified, ssl::verify_context &v_ctx)> verify_fun_{};
     };
 
     class channel_tunnel : public tunnel, public std::enable_shared_from_this<channel_tunnel>, public mem_move

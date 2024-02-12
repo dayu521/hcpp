@@ -284,13 +284,11 @@ namespace hcpp
         if (doh_filter_.contains(hedp.first))
         {
             el = co_await hcpp::resolve(hedp, dns_providers_);
-            // el.push_back({asio::ip::make_address("192.30.255.113"), 443});
         }
         else
         {
             tcp_resolver t(cc->get_executor());
             // 反而更慢,因为可能接收大量对同一个名字的解析
-            // auto src = co_await t.async_resolve(hedp.first, hedp.second);
             auto src = t.resolve(hedp.first, hedp.second);
 
             el.reserve(src.size());

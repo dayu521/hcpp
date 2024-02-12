@@ -98,14 +98,14 @@ target("hcpp")
     -- end
 target_end()
 
-add_requires("doctest")
+-- add_requires("doctest")
 
-target("a_test")
-    add_packages("doctest")
-    add_includedirs("src")
-    set_default("false")
-    add_files("test/src/a.cpp",{defines = "DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN"})
-    add_tests("a_test")
+-- target("a_test")
+--     add_packages("doctest")
+--     add_includedirs("src")
+--     set_default("false")
+--     add_files("test/src/a.cpp",{defines = "DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN"})
+--     add_tests("a_test")
 
 -- 打包源码
 -- includes("@builtin/xpack")

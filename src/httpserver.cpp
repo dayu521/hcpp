@@ -198,7 +198,6 @@ namespace hcpp
         }
 
         const decltype(ps_map) &cr_ps_map = ps_map;
-        // FIXME 这个需要用智能指针保证executor在https线程时是存在的吗?
         io_context executor;
         channel_ = std::make_shared<socket_channel>(co_await this_coro::executor, cn);
 
@@ -220,9 +219,8 @@ namespace hcpp
                         log::error("无法获取socket");
                         continue;
                     }
-                    //TODO 抽象工厂方法
+                    // TODO 抽象工厂方法
                     auto sk = std::make_shared<mitm_svc>();
-                    part_cert_info pci{};
 
                     subject_identify si{};
                     if (auto i = cr_ps_map.find(hsc->host_); i != cr_ps_map.end())
@@ -231,15 +229,20 @@ namespace hcpp
                         if (i->second.close_sni_)
                             sk->close_sni();
                     }
-                    co_await sk->make_memory(hsc->host_, hsc->service_, pci);
+
                     if (auto i = server_subject_map.find(hsc->host_); i != server_subject_map.end())
                     {
+                        co_await sk->make_memory(hsc->host_, hsc->service_);
                         si = i->second;
                     }
                     else
                     {
+                        part_cert_info pci{};
+                        sk->add_SAN_collector(pci);
                         log::info("mimt_https_server::wait_c:创建server_subject_map缓存 => {}", hsc->host_);
+                        co_await sk->make_memory(hsc->host_, hsc->service_);
                         si = sk->make_fake_server_id(pci.dns_name_, ca_subject);
+                        // XXX 插入失败不用管
                         server_subject_map.insert({hsc->host_, si});
                     }
 
@@ -302,7 +305,7 @@ namespace hcpp
 
     void mimt_https_server::set_root_verify_store_path(std::string_view root_verify_store_path)
     {
-        root_verify_store_path_=root_verify_store_path;
+        root_verify_store_path_ = root_verify_store_path;
     }
 
 } // namespace hcpp

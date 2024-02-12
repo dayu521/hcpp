@@ -63,7 +63,7 @@ namespace hcpp
         }
         ~cert_store()
         {
-            //BUG 为什么不调用  还要保没有其它人拥有此store_
+            //BUG 要保没有其它人拥有此store_
             log::error("cert_store析构函数");
             X509_STORE_free(store_);
         }

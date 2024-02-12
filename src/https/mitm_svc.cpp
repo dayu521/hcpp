@@ -40,7 +40,49 @@ namespace hcpp
     {
         enable_sni_ = false;
     }
-    awaitable<void> mitm_svc::make_memory(std::string svc_host, std::string svc_service, part_cert_info &pci)
+    void mitm_svc::add_SAN_collector(part_cert_info &pci)
+    {
+        // verify_fun_=
+        verify_fun_ = [&pci](bool preverified, auto &v_ctx)
+        {
+            if (preverified)
+            {
+                X509 *cert = X509_STORE_CTX_get_current_cert(v_ctx.native_handle());
+                // X509_NAME *subject = X509_get_subject_name(cert);
+                // log::error("{}", X509_NAME_oneline(subject, nullptr, 0));
+                // 获取目标主机证书
+                // echo -n | openssl s_client -connect gitee.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p'  | openssl x509 -text -noout
+                // 获取目标主机证书中的subjectAltName
+                // https://www.openssl.org/docs/manmaster/man3/X509_get_ext_d2i.html
+                if (auto names = (GENERAL_NAMES *)X509_get_ext_d2i(cert, NID_subject_alt_name, nullptr, nullptr); names != nullptr)
+                {
+
+                    for (int j = 0; j < sk_GENERAL_NAME_num(names); j++)
+                    {
+                        GENERAL_NAME *name = sk_GENERAL_NAME_value(names, j);
+                        if (name->type == GEN_DNS)
+                        {
+                            // 如果是DNS类型的Subject Alternative Name
+                            // 获取DNS名称
+                            char *dns_name = (char *)ASN1_STRING_get0_data(name->d.dNSName);
+                            log::info("DNS Name: {}", dns_name);
+                            pci.dns_name_.push_back(dns_name);
+                        }
+                        // 可以根据需要处理其他类型的Subject Alternative Name
+                    }
+                }
+
+                pci.pubkey_ = make_pem_str(X509_get_X509_PUBKEY(cert));
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+            //  X509_NAME_oneline(X509_get_subject_name(cert), subject_name, sizeof(subject_name)); });
+        };
+    }
+    awaitable<void> mitm_svc::make_memory(std::string svc_host, std::string svc_service)
     {
         try
         {
@@ -56,43 +98,20 @@ namespace hcpp
                 {
                     ssl_m->set_sni(sni_host_);
                 }
-                auto verify_fun = [&pci, host = svc_host](bool preverified, auto &v_ctx)
+                auto verify_fun = [self = shared_from_this(), host = svc_host](bool preverified, auto &v_ctx)
                 {
                     if (ssl::host_name_verification(host)(preverified, v_ctx))
                     {
-                        X509 *cert = X509_STORE_CTX_get_current_cert(v_ctx.native_handle());
-                        // X509_NAME *subject = X509_get_subject_name(cert);
-                        // log::error("{}", X509_NAME_oneline(subject, nullptr, 0));
-                        // 获取目标主机证书
-                        // echo -n | openssl s_client -connect gitee.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p'  | openssl x509 -text -noout
-                        // 获取目标主机证书中的subjectAltName
-                        // https://www.openssl.org/docs/manmaster/man3/X509_get_ext_d2i.html
-                        if (auto names = (GENERAL_NAMES *)X509_get_ext_d2i(cert, NID_subject_alt_name, nullptr, nullptr); names != nullptr)
+                        if (self->verify_fun_)
                         {
-
-                            for (int j = 0; j < sk_GENERAL_NAME_num(names); j++)
-                            {
-                                GENERAL_NAME *name = sk_GENERAL_NAME_value(names, j);
-                                if (name->type == GEN_DNS)
-                                {
-                                    // 如果是DNS类型的Subject Alternative Name
-                                    // 获取DNS名称
-                                    char *dns_name = (char *)ASN1_STRING_get0_data(name->d.dNSName);
-                                    log::info("DNS Name: {}", dns_name);
-                                    pci.dns_name_.push_back(dns_name);
-                                }
-                                // 可以根据需要处理其他类型的Subject Alternative Name
-                            }
+                            return self->verify_fun_(preverified, v_ctx);
                         }
-
-                        pci.pubkey_ = make_pem_str(X509_get_X509_PUBKEY(cert));
                         return true;
                     }
                     else
                     {
                         return false;
                     }
-                    //  X509_NAME_oneline(X509_get_subject_name(cert), subject_name, sizeof(subject_name)); });
                 };
                 ssl_m->set_verify_callback(verify_fun);
                 co_await ssl_m->async_handshake();
