@@ -98,13 +98,15 @@ namespace hcpp
                 {
                     ssl_m->set_sni(sni_host_);
                 }
-                auto verify_fun = [self = shared_from_this(), host = svc_host](bool preverified, auto &v_ctx)
+                //XXX 这里不能用shared_from_this,因为回调会一直保持当前对象的智能指针,不释放
+                auto verify_fun = [verify_fun_=verify_fun_, host = svc_host](bool preverified, auto &v_ctx)
                 {
                     if (ssl::host_name_verification(host)(preverified, v_ctx))
                     {
-                        if (self->verify_fun_)
+                        if (verify_fun_)
                         {
-                            return self->verify_fun_(preverified, v_ctx);
+                            log::info("mitm_svc::make_memory: 校验{}开始",host);
+                            return verify_fun_(preverified, v_ctx);
                         }
                         return true;
                     }
@@ -183,14 +185,13 @@ namespace hcpp
         chc_->host_ = host;
         chc_->service_ = service;
         m->check(*this);
-        spdlog::debug("建立channel tunnel {}", host);
         co_await channel_->async_send(asio::error_code{}, chc_);
+        log::error("channel_tunnel::make_tunnel: 建立channel tunnel {}", host);
     }
 
     void channel_tunnel::make(std::unique_ptr<tcp_socket> sock)
     {
         chc_->sock_ = std::move(sock);
-        log::info("转移tcp_socket到channel");
     }
 
     void channel_tunnel::make(std::unique_ptr<ssl_socket> sock)

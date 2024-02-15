@@ -213,7 +213,7 @@ namespace hcpp
                     auto hsc = std::make_unique<https_client>();
                     hsc->host_ = cc->host_;
                     hsc->service_ = cc->service_;
-                    log::info("channel_client: {}", hsc->host_);
+                    log::error("channel_client: {}", hsc->host_);
                     if (!cc->sock_)
                     {
                         log::error("无法获取socket");
@@ -239,15 +239,17 @@ namespace hcpp
                     {
                         part_cert_info pci{};
                         sk->add_SAN_collector(pci);
-                        log::info("mimt_https_server::wait_c:创建server_subject_map缓存 => {}", hsc->host_);
                         co_await sk->make_memory(hsc->host_, hsc->service_);
                         si = sk->make_fake_server_id(pci.dns_name_, ca_subject);
                         // XXX 插入失败不用管
                         server_subject_map.insert({hsc->host_, si});
+                        log::error("mimt_https_server::wait_c:创建server_subject_map缓存 => {}", hsc->host_);
+                        log::error("mimt_https_server::wait_c:当前缓存数量 {}", server_subject_map.size());
                     }
 
                     hsc->set_mem(co_await std::move(*cc).make(std::move(si)));
 
+                    log::error("开始http_do {}", hsc->host_);
                     co_spawn(executor, http_do(std::move(hsc), std::move(sk)), detached);
                 }
                 catch (const std::exception &e)
@@ -285,7 +287,8 @@ namespace hcpp
             executor.stop();
             delete p; });
 
-        co_await https_listener();
+        co_await co_spawn(executor,https_listener(),use_awaitable);
+        // co_await https_listener();
         co_return;
     }
 
