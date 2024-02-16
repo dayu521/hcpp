@@ -27,7 +27,7 @@
             "host_":"avatars.githubusercontent.com",
             "svc_":"443",   
             "url_":"",      
-            "mitm_":true,   
+            "mitm_":false,   
             "doh_":true,
             "sni_host_":"www.baidu.com",     
             "close_sni_":false  
@@ -36,7 +36,7 @@
             "host_":"github.githubassets.com",
             "svc_":"443",   
             "url_":"",      
-            "mitm_":true,   
+            "mitm_":false,   
             "doh_":true,
             "sni_host_":"www.baidu.com",    
             "close_sni_":false  

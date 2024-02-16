@@ -50,6 +50,8 @@ namespace hcpp
 
         virtual http_request make_request() const;
 
+        virtual void init(){};
+
     protected:
         std::shared_ptr<memory> mem_;
     };

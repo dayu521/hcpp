@@ -82,6 +82,7 @@ namespace hcpp
             //  X509_NAME_oneline(X509_get_subject_name(cert), subject_name, sizeof(subject_name)); });
         };
     }
+    
     awaitable<void> mitm_svc::make_memory(std::string svc_host, std::string svc_service)
     {
         try
@@ -98,14 +99,14 @@ namespace hcpp
                 {
                     ssl_m->set_sni(sni_host_);
                 }
-                //XXX 这里不能用shared_from_this,因为回调会一直保持当前对象的智能指针,不释放
-                auto verify_fun = [verify_fun_=verify_fun_, host = svc_host](bool preverified, auto &v_ctx)
+                // XXX 这里不能用shared_from_this,因为回调会一直保持当前对象的智能指针,不释放
+                auto verify_fun = [verify_fun_ = verify_fun_, host = svc_host](bool preverified, auto &v_ctx)
                 {
                     if (ssl::host_name_verification(host)(preverified, v_ctx))
                     {
                         if (verify_fun_)
                         {
-                            log::info("mitm_svc::make_memory: 校验{}开始",host);
+                            log::info("mitm_svc::make_memory: 校验{}开始", host);
                             return verify_fun_(preverified, v_ctx);
                         }
                         return true;
@@ -116,6 +117,7 @@ namespace hcpp
                     }
                 };
                 ssl_m->set_verify_callback(verify_fun);
+                //XXX 这里的async_handshake会阻塞住线程,因此要在单独的协程里再进行.所以当前函数不能调用在监听连接的时候
                 co_await ssl_m->async_handshake();
                 m_ = ssl_m;
                 co_return;
@@ -186,7 +188,6 @@ namespace hcpp
         chc_->service_ = service;
         m->check(*this);
         co_await channel_->async_send(asio::error_code{}, chc_);
-        log::error("channel_tunnel::make_tunnel: 建立channel tunnel {}", host);
     }
 
     void channel_tunnel::make(std::unique_ptr<tcp_socket> sock)
@@ -207,6 +208,11 @@ namespace hcpp
         hr.host_ = host_;
         hr.port_ = service_;
         return hr;
+    }
+
+    void https_client::init()
+    {
+        //TODO 在这里实现创建假证书
     }
 
     awaitable<std::shared_ptr<memory>> channel_client::make(subject_identify si) &&

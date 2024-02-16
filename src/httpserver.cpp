@@ -19,6 +19,7 @@ namespace hcpp
 
     awaitable<void> http_do(std::unique_ptr<http_client> client, std::shared_ptr<service_keeper> sk)
     {
+        client->init();
         while (true)
         {
             auto ss = client->get_memory();
@@ -210,6 +211,7 @@ namespace hcpp
                 try
                 {
                     std::shared_ptr<channel_client> cc = co_await c->async_receive();
+                    //BUG 这里以下部分需要放到协程执行,因为一些操作会阻塞住线程
                     auto hsc = std::make_unique<https_client>();
                     hsc->host_ = cc->host_;
                     hsc->service_ = cc->service_;
@@ -249,7 +251,6 @@ namespace hcpp
 
                     hsc->set_mem(co_await std::move(*cc).make(std::move(si)));
 
-                    log::error("开始http_do {}", hsc->host_);
                     co_spawn(executor, http_do(std::move(hsc), std::move(sk)), detached);
                 }
                 catch (const std::exception &e)
@@ -287,7 +288,7 @@ namespace hcpp
             executor.stop();
             delete p; });
 
-        co_await co_spawn(executor,https_listener(),use_awaitable);
+        co_await co_spawn(executor, https_listener(), use_awaitable);
         // co_await https_listener();
         co_return;
     }

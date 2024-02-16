@@ -39,6 +39,8 @@ namespace hcpp
     {
         virtual http_request make_request() const override;
 
+        virtual void init() override;
+
         void set_mem(std::shared_ptr<memory> m)
         {
             mem_ = m;
