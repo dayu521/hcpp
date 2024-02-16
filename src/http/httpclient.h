@@ -3,6 +3,7 @@
 #include "memory.h"
 #include "socket_wrap.h"
 #include "httpmsg.h"
+#include "asio_coroutine_net.h"
 
 #include <optional>
 
@@ -50,7 +51,7 @@ namespace hcpp
 
         virtual http_request make_request() const;
 
-        virtual void init(){};
+        virtual awaitable<void> init(){co_return;}
 
     protected:
         std::shared_ptr<memory> mem_;

@@ -210,9 +210,10 @@ namespace hcpp
         return hr;
     }
 
-    void https_client::init()
+    awaitable<void> https_client::init()
     {
-        //TODO 在这里实现创建假证书
+        assert(init_);
+        co_await init_(*this);
     }
 
     awaitable<std::shared_ptr<memory>> channel_client::make(subject_identify si) &&

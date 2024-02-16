@@ -35,22 +35,6 @@ namespace hcpp
     // HACK 好像只能支持发送存在默认构造函数的对象.所以不能使用std::unique_ptr
     // using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<tls_client>)>>;
 
-    struct https_client : public http_client
-    {
-        virtual http_request make_request() const override;
-
-        virtual void init() override;
-
-        void set_mem(std::shared_ptr<memory> m)
-        {
-            mem_ = m;
-        }
-
-    public:
-        std::string host_;
-        std::string service_;
-    };
-
     struct part_cert_info
     {
         std::vector<std::string> dns_name_;
@@ -61,6 +45,14 @@ namespace hcpp
     {
     public:
         awaitable<std::shared_ptr<memory>> create(std::string host, std::string service) override;
+    };
+
+    template <typename T>
+    class cache
+    {
+    public:
+        virtual std::optional<T> get() {}
+        virtual void put(T t) {}
     };
 
     // https://zh.cppreference.com/w/cpp/memory/enable_shared_from_this
@@ -90,7 +82,24 @@ namespace hcpp
         std::string sni_host_;
         bool enable_sni_ = true;
 
-        std::function<bool (bool preverified, ssl::verify_context &v_ctx)> verify_fun_{};
+        std::function<bool(bool preverified, ssl::verify_context &v_ctx)> verify_fun_{};
+    };
+
+    struct https_client : public http_client
+    {
+        virtual http_request make_request() const override;
+
+        virtual awaitable<void> init() override;
+
+        void set_mem(std::shared_ptr<memory> m)
+        {
+            mem_ = m;
+        }
+
+    public:
+        std::string host_;
+        std::string service_;
+        std::function<awaitable<void> (https_client & )> init_{}; 
     };
 
     class channel_tunnel : public tunnel, public std::enable_shared_from_this<channel_tunnel>, public mem_move

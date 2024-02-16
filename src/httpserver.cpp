@@ -19,7 +19,7 @@ namespace hcpp
 
     awaitable<void> http_do(std::unique_ptr<http_client> client, std::shared_ptr<service_keeper> sk)
     {
-        client->init();
+        co_await client->init();
         while (true)
         {
             auto ss = client->get_memory();
@@ -211,11 +211,10 @@ namespace hcpp
                 try
                 {
                     std::shared_ptr<channel_client> cc = co_await c->async_receive();
-                    //BUG 这里以下部分需要放到协程执行,因为一些操作会阻塞住线程
+                    // BUG 这里以下部分需要放到协程执行,因为一些操作会阻塞住线程
                     auto hsc = std::make_unique<https_client>();
                     hsc->host_ = cc->host_;
                     hsc->service_ = cc->service_;
-                    log::error("channel_client: {}", hsc->host_);
                     if (!cc->sock_)
                     {
                         log::error("无法获取socket");
@@ -224,32 +223,35 @@ namespace hcpp
                     // TODO 抽象工厂方法
                     auto sk = std::make_shared<mitm_svc>();
 
-                    subject_identify si{};
-                    if (auto i = cr_ps_map.find(hsc->host_); i != cr_ps_map.end())
+                    hsc->init_ = [&cr_ps_map,sk,cc,ca_subject](https_client &self)->awaitable<void>
                     {
-                        sk->set_sni_host(i->second.sni_host_);
-                        if (i->second.close_sni_)
-                            sk->close_sni();
-                    }
+                        subject_identify si{};
+                        if (auto i = cr_ps_map.find(self.host_); i != cr_ps_map.end())
+                        {
+                            sk->set_sni_host(i->second.sni_host_);
+                            if (i->second.close_sni_)
+                                sk->close_sni();
+                        }
 
-                    if (auto i = server_subject_map.find(hsc->host_); i != server_subject_map.end())
-                    {
-                        co_await sk->make_memory(hsc->host_, hsc->service_);
-                        si = i->second;
-                    }
-                    else
-                    {
-                        part_cert_info pci{};
-                        sk->add_SAN_collector(pci);
-                        co_await sk->make_memory(hsc->host_, hsc->service_);
-                        si = sk->make_fake_server_id(pci.dns_name_, ca_subject);
-                        // XXX 插入失败不用管
-                        server_subject_map.insert({hsc->host_, si});
-                        log::error("mimt_https_server::wait_c:创建server_subject_map缓存 => {}", hsc->host_);
-                        log::error("mimt_https_server::wait_c:当前缓存数量 {}", server_subject_map.size());
-                    }
+                        if (auto i = server_subject_map.find(self.host_); i != server_subject_map.end())
+                        {
+                            co_await sk->make_memory(self.host_, self.service_);
+                            si = i->second;
+                        }
+                        else
+                        {
+                            part_cert_info pci{};
+                            sk->add_SAN_collector(pci);
+                            co_await sk->make_memory(self.host_, self.service_);
+                            si = sk->make_fake_server_id(pci.dns_name_, ca_subject);
+                            // XXX 插入失败不用管
+                            server_subject_map.insert({self.host_, si});
+                            log::error("mimt_https_server::wait_c:创建server_subject_map缓存 => {}", self.host_);
+                            log::error("mimt_https_server::wait_c:当前缓存数量 {}", server_subject_map.size());
+                        }
 
-                    hsc->set_mem(co_await std::move(*cc).make(std::move(si)));
+                        self.set_mem(co_await std::move(*cc).make(std::move(si)));
+                    };
 
                     co_spawn(executor, http_do(std::move(hsc), std::move(sk)), detached);
                 }
