@@ -21,10 +21,9 @@ namespace hcpp
     bool operator<(int lk, const socket_memory::mem_block &fk) { return lk < fk.begin_; }
     bool operator<(const socket_memory::mem_block &fk1, const socket_memory::mem_block &fk2) { return fk1.begin_ < fk2.begin_; }
 
-    awaitable<bool> socket_memory::wait()
+    awaitable<void> socket_memory::wait()
     {
         co_await sock_->async_wait(tcp_socket::wait_read);
-        co_return ok();
     }
 
     awaitable<std::string_view> hcpp::socket_memory::async_load_some(std::size_t max_n)

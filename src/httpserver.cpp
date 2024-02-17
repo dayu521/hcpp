@@ -24,11 +24,11 @@ namespace hcpp
         {
             auto ss = client->get_memory();
             ss->reset();
-            if (!co_await ss->wait())
+            if (!ss->ok())
             {
                 break;
             }
-
+            co_await ss->wait();
             auto req = client->make_request();
             auto p1 = req.get_first_parser(ss);
 
@@ -45,7 +45,6 @@ namespace hcpp
                     else if (!req.host_.empty())
                     {
                         req.headers_.erase("proxy-connection");
-                        // req.headers_["connection"] = "Connection: keep-alive\r\n";
                         std::string req_line = req.method_str_ + " " + req.url_ + " " + req.version_ + "\r\n";
                         for (auto &&header : req.headers_)
                         {
@@ -56,6 +55,7 @@ namespace hcpp
                         auto w = co_await sk->wait(req.host_, req.port_);
 
                         log::info("http_do:请求开始\n{}{}", req.host_, req.url_);
+
                         auto start_point = std::chrono::high_resolution_clock::now();
                         co_await w->async_write_all(req_line);
                         if (req.chunk_coding_)
@@ -86,11 +86,11 @@ namespace hcpp
                                     {
                                         log::warn("不保活 {}", req.host_);
                                         w->close();
+                                        ss->close();
                                     }
                                 }
 
                                 std::string msg_header = rp.response_line_ + rp.response_header_str_;
-                                // log::error("{}响应头\n{}",req.host_,msg_header);
                                 co_await ss->async_write_all(msg_header);
                                 if (rp.chunk_coding_)
                                 {
@@ -125,11 +125,11 @@ namespace hcpp
                                 }
                                 else
                                 {
-                                    ;
+                                    log::debug("httpdo: 没有响应体");
                                 }
                                 auto end_point = std::chrono::high_resolution_clock::now();
                                 auto du = std::chrono::duration_cast<std::chrono::milliseconds>(end_point - start_point).count();
-                                log::info("http_do:请求结束\n{}{}\n间隔 {}ms ", req.host_, req.url_, du);
+                                log::error("http_do:请求结束\n{}{} 间隔 {}ms ", req.host_, req.url_, du);
                                 continue;
                             }
                         }
@@ -223,7 +223,7 @@ namespace hcpp
                     // TODO 抽象工厂方法
                     auto sk = std::make_shared<mitm_svc>();
 
-                    hsc->init_ = [&cr_ps_map,sk,cc,ca_subject](https_client &self)->awaitable<void>
+                    hsc->init_ = [&cr_ps_map, sk, cc, ca_subject](https_client &self) -> awaitable<void>
                     {
                         subject_identify si{};
                         if (auto i = cr_ps_map.find(self.host_); i != cr_ps_map.end())

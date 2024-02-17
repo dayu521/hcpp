@@ -53,7 +53,7 @@ namespace hcpp
         ~service_worker();
 
     public:
-        virtual awaitable<bool> wait() override;
+        virtual awaitable<void> wait() override;
 
         virtual awaitable<std::string_view> async_load_some(std::size_t max_n) override;
         virtual awaitable<std::size_t> async_write_some(std::string_view) override;
@@ -99,6 +99,7 @@ namespace hcpp
     private:
         std::shared_ptr<slow_dns> slow_dns_;
         std::shared_ptr<svc_cache> endpoint_cache_;
+        std::shared_ptr<memory> m_;
     };
 
     class svc_cache

@@ -144,7 +144,7 @@ namespace hcpp
         if (header.contains("content-length"))
         {
             std::string cl = header.at("content-length");
-            static std::regex digit(R"(0|[1-9]\d{0,10})");
+            static thread_local std::regex digit(R"(0|[1-9]\d{0,10})");
             std::smatch m;
             if (!std::regex_search(cl, m, digit))
             {

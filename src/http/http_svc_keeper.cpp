@@ -16,15 +16,35 @@
 
 namespace hcpp
 {
+    class failed_mem : public simple_mem
+    {
+        virtual bool ok()
+        {
+            return false;
+        }
+    };
+
     http_svc_keeper::http_svc_keeper(std::shared_ptr<svc_cache> cache, std::shared_ptr<slow_dns> dns) : slow_dns_(dns), endpoint_cache_(cache)
     {
     }
 
     awaitable<std::shared_ptr<memory>> http_svc_keeper::wait(std::string svc_host, std::string svc_service)
     {
-        auto svc_endpoint = co_await endpoint_cache_->get_endpoint(svc_host, svc_service, slow_dns_);
+        if (!m_)
+        {
+            if (auto o = co_await make_socket(svc_host, svc_service); o)
+            {
+                m_ = std::make_shared<socket_memory>(std::move(*o));
+            }
+            else
+            {
+                m_ = std::make_shared<failed_mem>();
+            }
+        }
+        co_return m_;
+        // auto svc_endpoint = co_await endpoint_cache_->get_endpoint(svc_host, svc_service, slow_dns_);
 
-        co_return std::make_shared<service_worker>(svc_endpoint, svc_host, svc_service, endpoint_cache_);
+        // co_return std::make_shared<service_worker>(svc_endpoint, svc_host, svc_service, endpoint_cache_);
     }
 
     awaitable<std::shared_ptr<tunnel>> http_svc_keeper::wait_tunnel(std::string svc_host, std::string svc_service)
@@ -62,14 +82,6 @@ namespace hcpp
                 std::unique_lock<std::shared_mutex> lk(shm_c_);
                 cache_.clear();
             }
-        }
-    };
-
-    class failed_mem : public simple_mem
-    {
-        virtual bool ok()
-        {
-            return false;
         }
     };
 
@@ -242,7 +254,7 @@ namespace hcpp
         }
     }
 
-    awaitable<bool> service_worker::wait()
+    awaitable<void> service_worker::wait()
     {
         co_return co_await m_->wait();
     }

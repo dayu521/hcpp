@@ -31,7 +31,6 @@ namespace hcpp
         }
 
     public:
-        virtual awaitable<bool> wait();
 
         // XXX读取最大max_n的数据,放到buff中.
         virtual awaitable<std::string_view> async_load_some(std::size_t max_n = 1024 * 4 * 2);
@@ -41,14 +40,6 @@ namespace hcpp
         std::string buff_;
         tcp_socket sock_;
     };
-
-    awaitable<bool> simple_tunnel_mem::wait()
-    {
-        // co_await sock_.async_wait(tcp_socket::wait_write);
-        // co_await sock_.async_wait(tcp_socket::wait_read);
-        // read_ok_ = write_ok_ = true;
-        co_return ok();
-    }
 
     awaitable<std::string_view> simple_tunnel_mem::async_load_some(std::size_t max_n)
     {
@@ -70,9 +61,8 @@ namespace hcpp
     awaitable<void> simple_tunnel_mem::async_write_all(std::string_view data)
     {
         auto [e, n] = co_await async_write(sock_, buffer(data), as_tuple(use_awaitable));
-        if (n == 0)
+        if (e)
         {
-            sock_.shutdown(tcp_socket::shutdown_send);
             write_ok_ = false;
         }
     }

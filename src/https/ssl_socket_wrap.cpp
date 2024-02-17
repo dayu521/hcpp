@@ -17,10 +17,6 @@ namespace hcpp
     bool operator<(int lk, const ssl_sock_mem::mem_block &fk) { return lk < fk.begin_; }
     bool operator<(const ssl_sock_mem::mem_block &fk1, const ssl_sock_mem::mem_block &fk2) { return fk1.begin_ < fk2.begin_; }
 
-    awaitable<bool> ssl_sock_mem::wait()
-    {
-        co_return ok();
-    }
     awaitable<std::string_view> ssl_sock_mem::async_load_some(std::size_t max_n)
     {
         std::size_t begin = write_index_;
