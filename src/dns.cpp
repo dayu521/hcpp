@@ -46,7 +46,6 @@ namespace hcpp
 
         std::shared_mutex smutex_;
         std::map<host_edp, edp_lists> edp_cache_;
-        std::unique_ptr<tcp_resolver> resolver_;
         bool has_init_;
         bool has_save_;
 
@@ -62,8 +61,18 @@ namespace hcpp
 
         void remove(host_edp hedp);
 
-        //BUG 析构时使用锁
-        ~slow_dns_imp()=default;
+        ~slow_dns_imp()
+        {
+            {
+                std::unique_lock<std::mutex> lk(rmutex_);
+                resolve_running_.clear();
+            }
+
+            {
+                std::unique_lock<std::shared_mutex> lk(smutex_);
+                edp_cache_.clear();
+            }
+        }
     };
     namespace
     {
@@ -90,7 +99,7 @@ namespace hcpp
                 tcp_socket s(c);
                 co_await asio::async_connect(s, endpoints);
 
-                auto ssl_m = std::make_shared<ssl_sock_mem>(provider.host_,"https");
+                auto ssl_m = std::make_shared<ssl_sock_mem>(provider.host_, "https");
                 ssl_m->init_client(std::move(s));
                 co_await ssl_m->async_handshake();
                 co_await ssl_m->wait();

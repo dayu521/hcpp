@@ -52,12 +52,10 @@ int main(int argc, char **argv)
         }
         auto c = hcpp::config::get_config(cfg_path);
         c->config_to(hcpp::slow_dns::get_slow_dns());
-        // c->save_callback([sd = hcpp::slow_dns::get_slow_dns()](auto &&cs)
-        //                  { sd->save_hm(cs.hm_); });
 
         asio::io_context io_context;
 
-        hcpp::nc=std::make_shared<hcpp::notify_channel>(io_context,1);
+        hcpp::nc = std::make_shared<hcpp::notify_channel>(io_context, 1);
 
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto)
@@ -65,7 +63,8 @@ int main(int argc, char **argv)
 
         hcpp::httpserver hs;
         hcpp::mimt_https_server mhs;
-        if(!c->config_to(mhs)){
+        if (!c->config_to(mhs))
+        {
             return -1;
         }
 
@@ -76,15 +75,28 @@ int main(int argc, char **argv)
                     }
                       return c; });
 
-        co_spawn(io_context, hs.wait_http(c->get_port()), detached);
-        co_spawn(io_context, mhs.wait_c(10,c->get_proxy_service()), detached);
-        // co_spawn(io_context, []()->asio::awaitable<void>{co_await hcpp::nc->async_send(asio::error_code{}, "ok");}, detached);
+        auto exit_handler = [&io_context](auto &&eptr)
+        {
+            try
+            {
+                if (eptr)
+                    std::rethrow_exception(eptr);
+            }
+            catch (const std::exception &e)
+            {
+                log::error("exit_handler: {}", e.what());
+                io_context.stop();
+            }
+        };
+
+        co_spawn(io_context, hs.wait_http(c->get_port()), exit_handler);
+        co_spawn(io_context, mhs.wait_c(10, c->get_proxy_service()), exit_handler);
 
         auto create_thread = [&](auto self, int i) -> void
         {
             if (i > 0)
             {
-                spdlog::debug("线程{}创建成功",i);
+                spdlog::debug("线程{}创建成功", i);
                 std::jthread j(self, self, i - 1);
                 while (!io_context.stopped())
                 {
@@ -98,7 +110,7 @@ int main(int argc, char **argv)
                     }
                 }
                 j.join();
-                spdlog::debug("线程{}退出成功",i);
+                spdlog::debug("线程{}退出成功", i);
             }
         };
         // 为了防止对象在多线程情况下销毁出问题

@@ -51,6 +51,18 @@ namespace hcpp
         awaitable<void> get_endpoint(const std::string &host, const std::string &service, std::shared_ptr<hcpp::slow_dns> dns, std::shared_ptr<channel> c);
         void return_back(const std::string &host, const std::string &service, std::shared_ptr<memory> m);
         bool remove_endpoint(std::string host, std::string service);
+
+        ~imp()
+        {
+            {
+                std::unique_lock<std::shared_mutex> lk(shm_rq_);
+                request_queue_.clear();
+            }
+            {
+                std::unique_lock<std::shared_mutex> lk(shm_c_);
+                cache_.clear();
+            }
+        }
     };
 
     class failed_mem : public simple_mem
@@ -337,8 +349,8 @@ namespace hcpp
         auto sock = co_await make_socket(host, service);
         if (sock)
         {
-            auto ss= std::make_shared<socket_memory>(std::move(*sock));
-            ss->host_=host;
+            auto ss = std::make_shared<socket_memory>(std::move(*sock));
+            ss->host_ = host;
             co_return ss;
         }
         co_return std::shared_ptr<memory>{};
