@@ -30,7 +30,6 @@ namespace hcpp
         {
             // XXX 如何关闭呢 https://www.rfc-editor.org/rfc/rfc5246#section-7.2.1
             read_ok_ = false;
-            write_ok_ = false;
             co_return "";
         }
         write_index_ += n;
@@ -44,7 +43,6 @@ namespace hcpp
         auto [e, n] = co_await ssl_sock_->async_write_some(buffer(s), as_tuple(use_awaitable));
         if (s.empty())
         {
-            read_ok_ = false;
             write_ok_ = false;
             ssl_sock_->shutdown();
             co_return 0;
@@ -70,7 +68,6 @@ namespace hcpp
         if (n == 0)
         {
             read_ok_ = false;
-            write_ok_ = false;
             co_return "";
         }
         r.resize(buff.size());
@@ -79,8 +76,6 @@ namespace hcpp
         buff.consume(buff.size());
         write_index_ += r.size();
         auto [i, b] = buffs_.insert({begin, std::move(r)});
-        // BUG 为什么此处有时候会断言失败
-        assert(b);
         co_return std::string_view{i->data_.data(), n};
     }
 
@@ -92,13 +87,13 @@ namespace hcpp
         }
         catch (const std::exception &e)
         {
-            log::error("ssl_sock_mem::async_write_all error: {} \n msg {}", e.what(), s);
+            log::error("ssl_sock_mem::async_write_all error: {} \n{}", e.what(), s);
+            write_ok_ = false;
         }
 
         // auto [e, n] = co_await async_write(*ssl_sock_, buffer(s, s.size()), as_tuple(use_awaitable));
         if (s.empty())
         {
-            read_ok_ = false;
             write_ok_ = false;
             ssl_sock_->shutdown();
         }
@@ -228,9 +223,11 @@ namespace hcpp
         if (!verify_path)
         {
             set_platform_default_verify_store(*ctx_);
-        }else{
+        }
+        else
+        {
             ctx_->add_verify_path(*verify_path);
-        } 
+        }
         ssl_sock_->set_verify_mode(ssl::verify_peer);
         ssl_sock_->set_verify_callback(cb);
     }
@@ -245,6 +242,7 @@ namespace hcpp
         {
             log::error("~ssl_sock_mem: {}", e.what());
         }
+        log::info("~ssl_sock_mem: {}=>{}", host_, stream_type_ == ssl::stream_base::server ? "server" : "client");
     }
 
 } // namespace hcpp

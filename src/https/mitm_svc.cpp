@@ -156,7 +156,12 @@ namespace hcpp
         // 使用ca签名
         sign(cert, ca_pky);
 
-        return {make_pem_str(pky), make_pem_str(cert)};
+        subject_identify si{make_pem_str(pky), make_pem_str(cert)};
+
+        X509_free(cert);
+        EVP_PKEY_free(ca_pky);
+
+        return si;
     }
     awaitable<std::shared_ptr<memory>> ssl_mem_factory::create(std::string host, std::string service)
     {
