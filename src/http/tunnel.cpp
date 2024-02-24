@@ -29,9 +29,9 @@ namespace hcpp
         {
             buff_.resize(n);
         }
+        ~simple_tunnel_mem();
 
     public:
-
         // XXX读取最大max_n的数据,放到buff中.
         virtual awaitable<std::string_view> async_load_some(std::size_t max_n = 1024 * 4 * 2);
 
@@ -40,6 +40,21 @@ namespace hcpp
         std::string buff_;
         tcp_socket sock_;
     };
+
+    simple_tunnel_mem::~simple_tunnel_mem()
+    {
+        try
+        {
+            if (sock_.is_open())
+            {
+                sock_.close();
+            }
+        }
+        catch (const std::exception &e)
+        {
+            log::error("simple_tunnel_mem::~simple_tunnel_mem() {}", e.what());
+        }
+    }
 
     awaitable<std::string_view> simple_tunnel_mem::async_load_some(std::size_t max_n)
     {
@@ -50,7 +65,7 @@ namespace hcpp
             mn = max_n;
         }
         auto [e, n] = co_await sock_.async_read_some(buffer(buff_, mn), as_tuple(use_awaitable));
-        if (n == 0)
+        if (e)
         {
             read_ok_ = false;
             // sock_.shutdown(tcp_socket::shutdown_receive);
@@ -60,6 +75,10 @@ namespace hcpp
 
     awaitable<void> simple_tunnel_mem::async_write_all(std::string_view data)
     {
+        if(data.empty()){
+            write_ok_ = false;
+            co_return;
+        }
         auto [e, n] = co_await async_write(sock_, buffer(data), as_tuple(use_awaitable));
         if (e)
         {

@@ -26,7 +26,7 @@ namespace hcpp
 
         auto [e, n] = co_await ssl_sock_->async_read_some(buffer(r, max_n), as_tuple(use_awaitable));
 
-        if (n == 0)
+        if (e)
         {
             // XXX 如何关闭呢 https://www.rfc-editor.org/rfc/rfc5246#section-7.2.1
             read_ok_ = false;

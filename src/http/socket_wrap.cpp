@@ -35,7 +35,7 @@ namespace hcpp
 
         auto [e, n] = co_await sock_->async_read_some(buffer(r, max_n), as_tuple(use_awaitable));
 
-        if (n == 0)
+        if (e)
         {
             read_ok_ = false;
             // sock_->shutdown(tcp_socket::shutdown_receive);
@@ -93,8 +93,13 @@ namespace hcpp
 
     awaitable<void> hcpp::socket_memory::async_write_all(std::string_view s)
     {
-        auto [e, n] = co_await async_write(*sock_, buffer(s, s.size()), as_tuple(use_awaitable));
         if (s.empty())
+        {
+            write_ok_ = false;
+            co_return;
+        }
+        auto [e, n] = co_await async_write(*sock_, buffer(s, s.size()), as_tuple(use_awaitable));
+        if (e)
         {
             write_ok_ = false;
             // sock_->shutdown(tcp_socket::shutdown_send);
@@ -155,6 +160,21 @@ namespace hcpp
         buffs_.clear();
         buffs_.emplace(std::move(mb));
         return sn;
+    }
+
+    socket_memory::~socket_memory()
+    {
+        if (sock_ && sock_->is_open())
+        {
+            try
+            {
+                sock_->close();
+            }
+            catch (const std::exception &e)
+            {
+                log::error("~socket_memory: close socket error:{}", e.what());
+            }
+        }
     }
 
     void socket_memory::check(mem_move &m)
