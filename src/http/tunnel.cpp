@@ -75,10 +75,6 @@ namespace hcpp
 
     awaitable<void> simple_tunnel_mem::async_write_all(std::string_view data)
     {
-        if(data.empty()){
-            write_ok_ = false;
-            co_return;
-        }
         auto [e, n] = co_await async_write(sock_, buffer(data), as_tuple(use_awaitable));
         if (e)
         {
