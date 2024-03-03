@@ -25,8 +25,8 @@ jobs:
       
       - name: install packages
         run: |
-            pacman -Syu
-            pacman -S clang spdlog asio openssl xmake --neede
+            pacman -Syu --noconfirm
+            pacman -S clang spdlog asio openssl xmake --neede --noconfirm
         
       - name: Build
         run: |
