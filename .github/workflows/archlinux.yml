@@ -27,11 +27,15 @@ jobs:
         run: |
             pacman -Syu --noconfirm
             pacman -S clang spdlog asio openssl xmake unzip --neede --noconfirm
-        
+           
+      - name: Config
+        run: |
+            xmake f --root -vD -y --github_action=true      
+           
       - name: Build
         run: |
-            xmake --root -vrDw -y --github_action=true
-
+            xmake --root -vrDw -y
+           
       - name: Package
         run: |
             xmake --root pack -f "targz" -y -o ./ 
