@@ -30,7 +30,7 @@ jobs:
         
       - name: Build
         run: |
-            xmake --root -vrDw -y 
+            xmake --root -vrDw -y --github_action=true
 
       - name: Package
         run: |
