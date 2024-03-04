@@ -26,7 +26,7 @@ jobs:
       - name: install packages
         run: |
             pacman -Syu --noconfirm
-            pacman -S clang spdlog fmt asio openssl xmake unzip --needed --noconfirm
+            pacman -S clang spdlog fmt asio openssl xmake cmake git unzip --needed --noconfirm
            
       - name: Config
         run: |
