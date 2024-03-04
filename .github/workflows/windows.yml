@@ -54,7 +54,7 @@ jobs:
 
       - name: Package
         run: |
-            xmake pack -y -o ./ 
+            xmake pack -f zip -y -o ./ 
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

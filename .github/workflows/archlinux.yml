@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux
-      options: --privileged
+      # options: --privileged
     permissions:
       contents: write
     steps:
@@ -25,16 +25,20 @@ jobs:
       
       - name: install packages
         run: |
-            pacman -Syu
-            pacman -S clang spdlog asio openssl xmake --neede
-        
+            pacman -Syu --noconfirm
+            pacman -S clang spdlog fmt asio openssl xmake pkgconf git unzip --needed --noconfirm
+           
+      - name: Config
+        run: |
+            xmake f --root -vD -y --github_action=true      
+           
       - name: Build
         run: |
-            xmake -vrDw -y 
-
+            xmake --root -vrDw -y
+           
       - name: Package
         run: |
-            xmake pack -f "targz" -y -o ./ 
+            xmake pack --root -f targz -y -o ./ 
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

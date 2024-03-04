@@ -1,5 +1,5 @@
 set_project("hcpp")
-set_xmakever("2.8.6")
+set_xmakever("2.8.7")
 add_rules("mode.debug", "mode.release")
 
 set_warnings("all")
@@ -115,6 +115,6 @@ target_end()
 
 includes("@builtin/xpack")
 xpack("hcpp")
-    set_formats("zip")
+    set_formats("zip","targz")
     add_installfiles("src/hcpp-cfg.json",{prefixdir = "bin"})
     add_targets("hcpp")
