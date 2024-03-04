@@ -38,7 +38,7 @@ jobs:
            
       - name: Package
         run: |
-            xmake --root pack -f "targz" -y -o ./ 
+            xmake --root pack -f targz -y -o ./ 
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
