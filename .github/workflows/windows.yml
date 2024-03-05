@@ -22,7 +22,7 @@ jobs:
 
       - uses: xmake-io/github-action-setup-xmake@v1
         with:
-          xmake-version: latest
+          xmake-version: 2.8.6
           actions-cache-folder: '.xmake-cache'
           actions-cache-key: '${{ runner.os }}.xmake-cache'
       
