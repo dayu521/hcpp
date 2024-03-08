@@ -1,4 +1,3 @@
-#include <lsf/json.h>
 #include "config.h"
 #include "dns.h"
 #include "httpserver.h"
@@ -9,6 +8,8 @@
 #include <tuple>
 
 #include <spdlog/spdlog.h>
+
+import lsf;
 
 namespace hcpp
 {

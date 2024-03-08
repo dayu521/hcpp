@@ -34,13 +34,14 @@ local openssl_package_name = ""
     
 local platform_cpp_file=""
 
+add_requires("lsf")
+
 if is_os("windows") then
     set_encodings("utf-8")
     -- add_defines("HCPP_XMAKE_WINDOWS")
 
     add_requires("asio 1.28.0",{verify = false})
     add_requires("openssl3",{verify = false})
-    add_requires("lsf")
     openssl_package_name = "openssl3"
     platform_cpp_file="src/os/windows.cpp"
 
@@ -48,13 +49,12 @@ if is_os("windows") then
         add_requireconfs(openssl_package_name,{system = false})
     end
 else
-    set_allowedmodes("debug")
-    set_defaultmode("debug")
+    -- set_allowedmodes("debug")
+    -- set_defaultmode("debug")
     set_toolchains("clang")
 
     add_requires("asio >=1.28.0",{verify = false})
     add_requires("openssl >=3.2.0",{verify = false})
-    add_requires("lsf" ,{debug = true})
     openssl_package_name = "openssl"
     platform_cpp_file="src/os/linux.cpp"
 end
