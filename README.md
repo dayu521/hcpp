@@ -16,20 +16,31 @@
 
 ### 编译
 
-需要c++20,使用xmake构建
+需要c++20
 
-linux下使用clang>16,在debug下编译
+- linux下使用clang>16,在debug下编译.
 
-windows使用最新编译器
+    例如,在archlinux下需要安装下述依赖
 
-打开终端或`windows terminal`
+    ```bash
+    sudo pacman -S clang spdlog fmt asio openssl xmake pkgconf git unzip --needed --noconfirm
+    ```
+
+    其他发行版对应安装
+
+
+- windows使用最新编译器,安装xmake.最好安装`windows terminal`
+
+---
+
+linux下打开`终端`或者windows下打开`windows terminal`
 
 ```shell
-    xmake g --proxy_pac=github_mirror.lua
+xmake g --proxy_pac=github_mirror.lua
 
-    xmake -rvwD hcpp
+xmake -rvwD hcpp
 
-    xmake run hcpp
+xmake run hcpp
 ```
 
 #### 运行
@@ -41,10 +52,10 @@ windows使用最新编译器
 使用curl直接进行测试
 
 ```shell
-    curl -i -x http://localhost:55555 -v --cacert ~/.config/hcpp/ca.cert.pem  'https://gitee.com' 
+curl -i -x http://localhost:55555 -v --cacert ~/.config/hcpp/ca.cert.pem  'https://gitee.com' 
 ```
 
 或者
 ```shell
-    curl -i -x http://localhost:55555 -vk  'https://gitee.com' 
+curl -i -x http://localhost:55555 -vk  'https://gitee.com' 
 ```
