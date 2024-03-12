@@ -21,6 +21,15 @@ namespace hcpp
 
     // using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<tls_client>)>>;
 
+    class http_handler
+    {
+    public:
+        void add_handler(std::string_view path, std::function<std::string (std::string_view)> handler);
+        awaitable<void> http_do(std::unique_ptr<http_client> client, std::shared_ptr<service_keeper> sk);
+    private:
+        std::unordered_map<std::string_view, std::function<std::string (std::string_view)>> base_handlers_;
+    };
+
     awaitable<void> http_do(std::unique_ptr<http_client> client, std::shared_ptr<service_keeper> sk);
 
     using tunnel_advice = std::function<std::shared_ptr<tunnel>(std::shared_ptr<tunnel>, std::string_view, std::string_view)>;
@@ -49,7 +58,7 @@ namespace hcpp
     class httpserver
     {
     public:
-        awaitable<void> wait_http(uint16_t port);
+        awaitable<void> wait_http(uint16_t port,io_context & ic);
 
         // TODO 让mitm替换掉tunnel实现,从而拦截默认tunnel
         void attach_tunnel(tunnel_advice w);
@@ -76,7 +85,7 @@ namespace hcpp
     class mimt_https_server
     {
     public:
-        awaitable<void> wait_c(std::size_t cn,std::vector<proxy_service> ps);
+        awaitable<void> wait_c(std::size_t cn, std::vector<proxy_service> ps);
         awaitable<void> wait(uint16_t port);
 
         std::optional<std::shared_ptr<tunnel>> find_tunnel(std::string_view svc_host, std::string_view svc_service);
@@ -85,6 +94,7 @@ namespace hcpp
 
         void set_ca(subject_identify ca_subject);
         void set_root_verify_store_path(std::string_view root_verify_store_path);
+
     private:
         std::shared_ptr<socket_channel> channel_;
         std::shared_ptr<subject_identify> ca_subject_;

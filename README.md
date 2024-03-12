@@ -18,12 +18,12 @@
 
 需要c++20
 
-- linux下使用clang>16,在debug下编译.
+- linux下使用clang>16.
 
     例如,在archlinux下需要安装下述依赖
 
     ```bash
-    sudo pacman -S clang spdlog fmt asio openssl xmake pkgconf git unzip --needed --noconfirm
+    sudo pacman -S clang spdlog fmt asio openssl xmake pkgconf git unzip --needed
     ```
 
     其他发行版对应安装
@@ -36,10 +36,11 @@
 linux下打开`终端`或者windows下打开`windows terminal`
 
 ```shell
+#下载依赖库时,可以设置github镜像代理
 xmake g --proxy_pac=github_mirror.lua
-
-xmake -rvwD hcpp
-
+#编译
+xmake -vDrw hcpp
+#运行
 xmake run hcpp
 ```
 

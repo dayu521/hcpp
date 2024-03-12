@@ -17,7 +17,7 @@ namespace hcpp
     namespace log = spdlog;
     // inline std::latch latch(1);
 
-    awaitable<void> http_do(std::unique_ptr<http_client> client, std::shared_ptr<service_keeper> sk)
+    awaitable<void> http_handler::http_do(std::unique_ptr<http_client> client, std::shared_ptr<service_keeper> sk)
     {
         co_await client->init();
         while (true)
@@ -136,8 +136,15 @@ namespace hcpp
                     }
                     else // TODO 用于控制自身行为
                     {
-                        co_await ss->async_write_all("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 16\r\n\r\nHello,from http!");
-                        continue;
+                        if (auto p=base_handlers_.find(req.url_);p!=base_handlers_.end())
+                        {
+                            co_await ss->async_write_all((p->second)(req.url_));
+                        }
+                        else
+                        {
+                            co_await ss->async_write_all("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 16\r\n\r\nHello,from http!");
+                            continue;
+                        }
                     }
                 }
             }
@@ -151,16 +158,27 @@ namespace hcpp
             }
         }
     }
+    
+    void http_handler::add_handler(std::string_view path, std::function<std::string (std::string_view)> handler)
+    {
+        base_handlers_.insert({path, handler});
+    }
 
     using tcp_acceptor = use_awaitable_t<>::as_default_on_t<ip::tcp::acceptor>;
 
-    awaitable<void> httpserver::wait_http(uint16_t port)
+    awaitable<void> httpserver::wait_http(uint16_t port, io_context &ic)
     {
         auto executor = co_await this_coro::executor;
 
         tcp_acceptor acceptor(executor, {ip::tcp::v4(), port});
         co_await nc->async_receive();
         spdlog::debug("http_server监听端口:{}", acceptor.local_endpoint().port());
+        http_handler hh;
+        hh.add_handler("/stop", [&ic](auto &&path)
+                       { 
+                        ic.stop(); 
+                        return "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 12\r\n\r\nserver stop!";
+                        });
         for (;;)
         {
             try
@@ -168,7 +186,7 @@ namespace hcpp
                 auto socket = co_await acceptor.async_accept();
                 auto sk = std::make_unique<http_svc_keeper>(make_threadlocal_svc_cache(), slow_dns::get_slow_dns());
                 auto hsk = std::make_shared<hack_sk>(std::move(sk), ta_);
-                co_spawn(executor, http_do(std::make_unique<http_client>(std::move(socket)), std::move(hsk)), detached);
+                co_spawn(executor, hh.http_do(std::make_unique<http_client>(std::move(socket)), std::move(hsk)), detached);
             }
             catch (const std::exception &e)
             {
@@ -204,8 +222,9 @@ namespace hcpp
 
         co_await nc->async_send(asio::error_code{}, "ok");
         // 在当前协程运行
-        auto https_listener = [&executor, c = channel_, cr_ps_map, ca_subject = ca_subject_]() -> awaitable<void>
+        auto https_listener = [c = channel_, cr_ps_map, ca_subject = ca_subject_]() -> awaitable<void>
         {
+            http_handler hh;
             for (;;)
             {
                 try
@@ -253,7 +272,7 @@ namespace hcpp
                         self.set_mem(co_await std::move(*cc).make(std::move(si)));
                     };
 
-                    co_spawn(executor, http_do(std::move(hsc), std::move(sk)), detached);
+                    co_spawn(co_await this_coro::executor, hh.http_do(std::move(hsc), std::move(sk)), detached);
                 }
                 catch (const std::exception &e)
                 {
@@ -280,7 +299,8 @@ namespace hcpp
             }
             spdlog::debug("mimt https server线程退出成功");
         };
-        std::jthread t(https_service);
+        std::thread t(https_service);
+        t.detach();
 
         std::unique_ptr<int, std::function<void(int *)>> ptr(new int(0), [&work_guard, &executor](auto &&p)
                                                              {
@@ -291,7 +311,7 @@ namespace hcpp
             delete p; });
 
         co_await co_spawn(executor, https_listener(), use_awaitable);
-        //XXX 不会执行到这里
+        // XXX 不会执行到这里
         co_return;
     }
 

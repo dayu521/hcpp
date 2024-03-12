@@ -90,6 +90,10 @@ namespace hcpp
                 if (h.url_.empty() && !h.host_.empty())
                 {
                     h.url_ = "/";
+                }else if(!h.url_.empty()){
+                    if(auto p=h.url_.find_first_of("?");p!=std::string::npos){
+                        h.url_=h.url_.substr(0,p);
+                    }
                 }
             }
             assert(url_end + 1 <= svl.size());
