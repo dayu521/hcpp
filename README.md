@@ -29,7 +29,7 @@
     其他发行版对应安装
 
 
-- windows使用最新编译器,安装xmake.最好安装`windows terminal`
+- windows使用最新msvc编译器,安装xmake.最好安装`windows terminal`
 
 ---
 

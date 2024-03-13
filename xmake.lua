@@ -1,5 +1,5 @@
 set_project("hcpp")
-set_xmakever("2.8.7")
+set_xmakever("2.8.8")
 add_rules("mode.debug", "mode.release")
 
 set_warnings("all")

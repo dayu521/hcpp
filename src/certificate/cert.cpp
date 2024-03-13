@@ -323,12 +323,12 @@ namespace hcpp
         X509_set_issuer_name(cert, X509_get_subject_name(ca_cert));
     }
 
-    void test()
-    {
+    // static void test()
+    // {
 
-        auto cert = X509_new();
+        // auto cert = X509_new();
 
-        auto pkey = generate_pkey();
+        // auto pkey = generate_pkey();
         // if (pkey == NULL)
         // CHECK(false);
         // print_key(pkey);
@@ -374,5 +374,5 @@ namespace hcpp
 
         // fclose(caCertFile);
         // X509_free(cert);
-    }
+    // }
 } // namespace hcpp

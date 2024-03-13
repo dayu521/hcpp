@@ -222,7 +222,7 @@ namespace hcpp
 
         co_await nc->async_send(asio::error_code{}, "ok");
         // 在当前协程运行
-        auto https_listener = [c = channel_, cr_ps_map, ca_subject = ca_subject_]() -> awaitable<void>
+        auto https_listener = [c = channel_, cr_ps_map, ca_subject = ca_subject_](io_context &executor) -> awaitable<void>
         {
             http_handler hh;
             for (;;)
@@ -272,7 +272,7 @@ namespace hcpp
                         self.set_mem(co_await std::move(*cc).make(std::move(si)));
                     };
 
-                    co_spawn(co_await this_coro::executor, hh.http_do(std::move(hsc), std::move(sk)), detached);
+                    co_spawn(executor, hh.http_do(std::move(hsc), std::move(sk)), detached);
                 }
                 catch (const std::exception &e)
                 {
@@ -281,11 +281,10 @@ namespace hcpp
             }
         };
 
-        auto work_guard = make_work_guard(executor);
-
         auto https_service = [&executor]()
         {
             spdlog::debug("mimt https server线程创建成功");
+            auto work_guard = make_work_guard(executor);
             while (!executor.stopped())
             {
                 try
@@ -299,18 +298,16 @@ namespace hcpp
             }
             spdlog::debug("mimt https server线程退出成功");
         };
-        std::thread t(https_service);
-        t.detach();
+        std::jthread t(https_service);
 
-        std::unique_ptr<int, std::function<void(int *)>> ptr(new int(0), [&work_guard, &executor](auto &&p)
+        std::unique_ptr<int, std::function<void(int *)>> ptr(new int(0), [ &executor](auto &&p)
                                                              {
             log::info("work_guard分离");
-            work_guard.reset();
-            std::this_thread::sleep_for(std::chrono::seconds(1));
             executor.stop();
+            std::this_thread::sleep_for(std::chrono::seconds(1));
             delete p; });
 
-        co_await co_spawn(executor, https_listener(), use_awaitable);
+        co_await https_listener(executor);
         // XXX 不会执行到这里
         co_return;
     }

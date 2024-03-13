@@ -18,27 +18,22 @@ namespace hcpp
         int nid_val_len_;
     };
 
+    const inline std::vector<name_entry> default_name_entries = {
+        {NID_countryName, "CN", sizeof("CN") - 1},
+        {NID_organizationName, "NoBody", sizeof("NoBody") - 1},
+        {NID_organizationalUnitName, "JS", sizeof("JS") - 1},
+        {NID_stateOrProvinceName, "JS", sizeof("JS") - 1},
+        {NID_commonName, "SQ", sizeof("SQ") - 1},
+        {NID_localityName, "SQ", sizeof("SQ") - 1},
+    };
+
     X509 *make_x509();
     EVP_PKEY *make_pkey();
     void set_version(X509 *cert);
     void set_serialNumber(X509 *cert);
-    void set_issuer(X509 *cert, const std::vector<name_entry> &ne = {
-                                    {NID_countryName, "CN", sizeof("CN") - 1},
-                                    {NID_organizationName, "NoBody", sizeof("NoBody") - 1},
-                                    {NID_organizationalUnitName, "JS", sizeof("JS") - 1},
-                                    {NID_stateOrProvinceName, "JS", sizeof("JS") - 1},
-                                    {NID_commonName, "SQ", sizeof("SQ") - 1},
-                                    {NID_localityName, "SQ", sizeof("SQ") - 1},
-                                });
+    void set_issuer(X509 *cert, const std::vector<name_entry> &ne = default_name_entries);
     void set_validity(X509 *cert, std::size_t days = 365 * 10);
-    void set_subject(X509 *cert, const std::vector<name_entry> &ne = {
-                                     {NID_countryName, "CN", sizeof("CN") - 1},
-                                     {NID_organizationName, "NoBody", sizeof("NoBody") - 1},
-                                     {NID_organizationalUnitName, "JS", sizeof("JS") - 1},
-                                     {NID_stateOrProvinceName, "JS", sizeof("JS") - 1},
-                                     {NID_commonName, "SQ", sizeof("SQ") - 1},
-                                     {NID_localityName, "SQ", sizeof("SQ") - 1},
-                                 });
+    void set_subject(X509 *cert, const std::vector<name_entry> &ne = default_name_entries);
     void set_pubkey(X509 *cert, EVP_PKEY *pkey);
     void add_ca_key_usage(X509 *cert);
     void add_SKI(X509 *cert);
