@@ -38,7 +38,7 @@ jobs:
            
       - name: Package
         run: |
-            xmake pack --root -f targz -y -o ./ 
+            xmake pack --root --basename=hcpp-${{github.ref_name}} -f targz -y -o ./ 
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
