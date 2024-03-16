@@ -35,6 +35,7 @@ namespace hcpp
         std::string method_str_;
         std::string host_;
         std::string url_;
+        std::size_t url_param_start_;
         std::string port_;
 
         request_line get_first_parser(std::shared_ptr<memory> m);

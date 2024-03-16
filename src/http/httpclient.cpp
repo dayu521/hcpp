@@ -91,8 +91,9 @@ namespace hcpp
                 {
                     h.url_ = "/";
                 }else if(!h.url_.empty()){
+                    h.url_param_start_=h.url_.size();
                     if(auto p=h.url_.find_first_of("?");p!=std::string::npos){
-                        h.url_=h.url_.substr(0,p);
+                        h.url_param_start_=p;
                     }
                 }
             }

@@ -136,7 +136,7 @@ namespace hcpp
                     }
                     else // TODO 用于控制自身行为
                     {
-                        if (auto p=base_handlers_.find(req.url_);p!=base_handlers_.end())
+                        if (auto p=base_handlers_.find({req.url_.data(),req.url_param_start_});p!=base_handlers_.end())
                         {
                             co_await ss->async_write_all((p->second)(req.url_));
                         }
