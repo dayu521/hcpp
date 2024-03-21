@@ -55,8 +55,6 @@ int main(int argc, char **argv)
 
         asio::io_context io_context;
 
-        hcpp::nc = std::make_shared<hcpp::notify_channel>(io_context, 1);
-
         asio::signal_set signals(io_context, SIGINT, SIGTERM);
         signals.async_wait([&](auto, auto)
                            { io_context.stop(); });
@@ -67,6 +65,7 @@ int main(int argc, char **argv)
         {
             return -1;
         }
+        mhs.set_ch(std::make_shared<hcpp::socket_channel>(io_context, 10));
 
         hs.attach_tunnel([&mhs](auto &&c, auto h, auto s)
                          {
@@ -90,7 +89,7 @@ int main(int argc, char **argv)
         };
 
         co_spawn(io_context, hs.wait_http(c->get_port(),io_context), exit_handler);
-        co_spawn(io_context, mhs.wait_c(10, c->get_proxy_service()), exit_handler);
+        co_spawn(io_context, mhs.wait_c(c->get_proxy_service()), exit_handler);
 
         auto create_thread = [&](auto self, int i) -> void
         {

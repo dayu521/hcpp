@@ -85,12 +85,14 @@ namespace hcpp
     class mimt_https_server
     {
     public:
-        awaitable<void> wait_c(std::size_t cn, std::vector<proxy_service> ps);
+        awaitable<void> wait_c(std::vector<proxy_service> ps);
         awaitable<void> wait(uint16_t port);
 
         std::optional<std::shared_ptr<tunnel>> find_tunnel(std::string_view svc_host, std::string_view svc_service);
 
         std::set<std::pair<std::string, std::string>> tunnel_set_;
+
+        void set_ch(std::shared_ptr<socket_channel> ch);
 
         void set_ca(subject_identify ca_subject);
         void set_root_verify_store_path(std::string_view root_verify_store_path);
@@ -103,7 +105,6 @@ namespace hcpp
 
     using notify_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::string)>>;
 
-    inline std::shared_ptr<notify_channel> nc;
 } // namespace hcpp
 
 #endif /* SRC_HTTPSERVER */

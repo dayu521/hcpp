@@ -171,7 +171,6 @@ namespace hcpp
         auto executor = co_await this_coro::executor;
 
         tcp_acceptor acceptor(executor, {ip::tcp::v4(), port});
-        co_await nc->async_receive();
         spdlog::debug("http_server监听端口:{}", acceptor.local_endpoint().port());
         http_handler hh;
         hh.add_handler("/stop", [&ic](auto &&path)
@@ -202,7 +201,7 @@ namespace hcpp
 
     static thread_local std::unordered_map<std::string, subject_identify> server_subject_map;
 
-    awaitable<void> mimt_https_server::wait_c(std::size_t cn, std::vector<proxy_service> ps)
+    awaitable<void> mimt_https_server::wait_c(std::vector<proxy_service> ps)
     {
         if (!ca_subject_)
         {
@@ -218,9 +217,7 @@ namespace hcpp
 
         const decltype(ps_map) &cr_ps_map = ps_map;
         io_context executor;
-        channel_ = std::make_shared<socket_channel>(co_await this_coro::executor, cn);
 
-        co_await nc->async_send(asio::error_code{}, "ok");
         // 在当前协程运行
         auto https_listener = [c = channel_, cr_ps_map, ca_subject = ca_subject_](io_context &executor) -> awaitable<void>
         {
@@ -329,6 +326,11 @@ namespace hcpp
     void mimt_https_server::set_root_verify_store_path(std::string_view root_verify_store_path)
     {
         root_verify_store_path_ = root_verify_store_path;
+    }
+
+    void mimt_https_server::set_ch(std::shared_ptr<socket_channel> ch)
+    {
+        channel_=ch;
     }
 
 } // namespace hcpp
