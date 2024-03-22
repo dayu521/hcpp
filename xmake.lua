@@ -41,7 +41,7 @@ if is_os("windows") then
     -- add_defines("HCPP_XMAKE_WINDOWS")
 
     add_requires("asio 1.28.0",{verify = false})
-    add_requires("openssl",{verify = false})
+    add_requires("openssl>=3.2.0",{verify = false})
     openssl_package_name = "openssl3"
     platform_cpp_file="src/os/windows.cpp"
 
