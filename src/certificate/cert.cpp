@@ -269,8 +269,9 @@ namespace hcpp
         BIO *bio = BIO_new(BIO_s_mem());
         PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL);
         auto pkey_size = BIO_pending(bio);
-        auto pkey_array = new char[pkey_size + 1];
-        BIO_read(bio, pkey_array, pkey_size);
+        std::string pkey_array{};
+        pkey_array.resize(pkey_size+1);
+        BIO_read(bio, pkey_array.data(), pkey_size);
         BIO_free_all(bio);
         return pkey_array;
     }
@@ -280,8 +281,9 @@ namespace hcpp
         BIO *bio = BIO_new(BIO_s_mem());
         PEM_write_bio_X509_PUBKEY(bio, pkey);
         auto pkey_size = BIO_pending(bio);
-        auto pubkey_array = new char[pkey_size + 1];
-        BIO_read(bio, pubkey_array, pkey_size);
+        std::string pubkey_array;
+        pubkey_array.resize(pkey_size + 1);
+        BIO_read(bio, pubkey_array.data(), pkey_size);
         BIO_free_all(bio);
         return pubkey_array;
     }
@@ -326,53 +328,53 @@ namespace hcpp
     // static void test()
     // {
 
-        // auto cert = X509_new();
+    // auto cert = X509_new();
 
-        // auto pkey = generate_pkey();
-        // if (pkey == NULL)
-        // CHECK(false);
-        // print_key(pkey);
+    // auto pkey = generate_pkey();
+    // if (pkey == NULL)
+    // CHECK(false);
+    // print_key(pkey);
 
-        // set_version(cert);
-        // set_validity(cert);
-        // set_serialNumber(cert);
-        // add_issuer(cert);
-        // set_subject(cert);
-        // // add_SAN(cert);
-        // add_ca_BS(cert);
-        // add_AKI(cert);
-        // add_SKI(cert);
-        // add_ca_key_usage(cert);
-        // set_pubkey(cert, pkey);
-        // sign(cert, pkey);
+    // set_version(cert);
+    // set_validity(cert);
+    // set_serialNumber(cert);
+    // add_issuer(cert);
+    // set_subject(cert);
+    // // add_SAN(cert);
+    // add_ca_BS(cert);
+    // add_AKI(cert);
+    // add_SKI(cert);
+    // add_ca_key_usage(cert);
+    // set_pubkey(cert, pkey);
+    // sign(cert, pkey);
 
-        // print_cert(cert);
+    // print_cert(cert);
 
-        // Save the private key to a file.
-        // FILE *privateKeyFile = fopen("hcpp.key.pem", "w");
-        // if (!privateKeyFile)
-        // {
-        //     // CHECK(false);
-        // }
-        // if (!PEM_write_PrivateKey(privateKeyFile, pkey, nullptr, nullptr, 0, nullptr, nullptr))
-        // {
-        //     fclose(privateKeyFile);
-        //     // CHECK(false);
-        // }
-        // fclose(privateKeyFile);
+    // Save the private key to a file.
+    // FILE *privateKeyFile = fopen("hcpp.key.pem", "w");
+    // if (!privateKeyFile)
+    // {
+    //     // CHECK(false);
+    // }
+    // if (!PEM_write_PrivateKey(privateKeyFile, pkey, nullptr, nullptr, 0, nullptr, nullptr))
+    // {
+    //     fclose(privateKeyFile);
+    //     // CHECK(false);
+    // }
+    // fclose(privateKeyFile);
 
-        // // Save the CA certificate to a file.
-        // // auto certfile="cert";
+    // // Save the CA certificate to a file.
+    // // auto certfile="cert";
 
-        // FILE *caCertFile = fopen("hcpp.crt.pem", "wb");
-        // if (!caCertFile)
-        // {
-        //     X509_free(cert);
-        //     // CHECK(false);
-        // }
-        // PEM_write_X509(caCertFile, cert);
+    // FILE *caCertFile = fopen("hcpp.crt.pem", "wb");
+    // if (!caCertFile)
+    // {
+    //     X509_free(cert);
+    //     // CHECK(false);
+    // }
+    // PEM_write_X509(caCertFile, cert);
 
-        // fclose(caCertFile);
-        // X509_free(cert);
+    // fclose(caCertFile);
+    // X509_free(cert);
     // }
 } // namespace hcpp

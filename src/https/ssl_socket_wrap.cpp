@@ -185,7 +185,7 @@ namespace hcpp
     void ssl_sock_mem::init_client(tcp_socket &&sock)
     {
         stream_type_ = ssl_stream_type::client;
-        ctx_ = std::make_unique<ssl::context>(ssl::context::tls);
+        ctx_ = std::make_unique<ssl::context>(ssl::context::tls_client);
         ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
     }
 
@@ -229,11 +229,16 @@ namespace hcpp
             ctx_->add_verify_path(*verify_path);
         }
         ssl_sock_->set_verify_mode(ssl::verify_peer);
+        // verify_callback hh=[](auto t,auto&& t2){
+        //     log::info("ssl_sock_mem::set_verify_callback: fuck you");
+        //     return true;
+        // };
         ssl_sock_->set_verify_callback(cb);
     }
 
     ssl_sock_mem::~ssl_sock_mem()
     {
+        ssl_sock_->set_verify_callback(verify_callback());
         try
         {
             ssl_sock_->lowest_layer().close();
@@ -242,7 +247,7 @@ namespace hcpp
         {
             log::error("~ssl_sock_mem: {}", e.what());
         }
-        log::info("~ssl_sock_mem: {}=>{}", host_, stream_type_ == ssl::stream_base::server ? "server" : "client");
+        log::info("~ssl_sock_mem: {}=>{}", stream_type_ == ssl::stream_base::server ? "client" : "server",host_);
     }
 
 } // namespace hcpp

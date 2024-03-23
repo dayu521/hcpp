@@ -54,7 +54,7 @@ else
     set_toolchains("clang")
 
     add_requires("asio >=1.28.0",{verify = false})
-    add_requires("openssl >=3.2.0",{verify = false})
+    add_requires("openssl >= 3",{verify = false})
     openssl_package_name = "openssl"
     platform_cpp_file="src/os/linux.cpp"
 end

@@ -290,19 +290,30 @@ namespace hcpp
         }
 
         edp_lists el;
-        if (doh_filter_.contains(hedp.first))
+        try
         {
-            el = co_await hcpp::resolve(hedp, dns_providers_);
-        }
-        else
-        {
-            tcp_resolver t(cc->get_executor());
-            // 反而更慢,因为可能接收大量对同一个名字的解析
-            auto src = t.resolve(hedp.first, hedp.second);
 
-            el.reserve(src.size());
-            std::ranges::transform(src, std::back_inserter(el), [](auto &&i)
-                                   { return std::move(i.endpoint()); });
+            if (doh_filter_.contains(hedp.first))
+            {
+                el = co_await hcpp::resolve(hedp, dns_providers_);
+            }
+            else
+            {
+                tcp_resolver t(cc->get_executor());
+                // 反而更慢,因为可能接收大量对同一个名字的解析
+                auto src = t.resolve(hedp.first, hedp.second);
+
+                el.reserve(src.size());
+                std::ranges::transform(src, std::back_inserter(el), [](auto &&i)
+                                       { return std::move(i.endpoint()); });
+            }
+        }
+        catch (const std::exception &e)
+        {
+            log::error("slow_dns::slow_dns_imp::async_resolve: 解析失败 {}",e.what());
+            std::unique_lock<std::mutex> m(rmutex_);
+            resolve_running_.erase(hedp);
+            throw;
         }
 
         {
