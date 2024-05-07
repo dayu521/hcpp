@@ -60,3 +60,9 @@ curl -i -x http://localhost:55555 -v --cacert ~/.config/hcpp/ca.cert.pem  'https
 ```shell
 curl -i -x http://localhost:55555 -vk  'https://gitee.com' 
 ```
+
+### 开发(DEV)
+
+通常,编译要求满足后不需要其他配置,不过你可以通过使用vscode的dev container在docker容器中进行开发,那么点击下面的连接
+
+If you already have VS Code and Docker installed, you can click the badge [here](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/dayu521/hcpp) to get started
