@@ -12,6 +12,7 @@
 #include <iostream>
 #include <algorithm>
 #include <unordered_set>
+#include <ranges>
 
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
@@ -304,8 +305,12 @@ namespace hcpp
                 auto src = t.resolve(hedp.first, hedp.second);
 
                 el.reserve(src.size());
-                std::ranges::transform(src, std::back_inserter(el), [](auto &&i)
-                                       { return std::move(i.endpoint()); });
+                auto tt = std::views::transform(
+                    [](auto &&i)
+                    {
+                        return std::move(i.endpoint());
+                    });
+                std::ranges::copy(src | tt, std::back_inserter(el));
             }
         }
         catch (const std::exception &e)
