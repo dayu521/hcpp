@@ -258,7 +258,9 @@ namespace hcpp
                         {
                             part_cert_info pci{};
                             sk->add_SAN_collector(pci);
+                            // 利用握手获取访问的主机的证书中的dns
                             co_await sk->make_memory(self.host_, self.service_);
+                            // 创建假的证书
                             si = sk->make_fake_server_id(pci.dns_name_, ca_subject);
                             // XXX 插入失败不用管
                             server_subject_map.insert({self.host_, si});

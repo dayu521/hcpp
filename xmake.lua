@@ -19,7 +19,7 @@ end
 -- https://xmake.io/#/zh-cn/package/remote_package?id=%e4%bd%bf%e7%94%a8%e8%87%aa%e5%bb%ba%e7%a7%81%e6%9c%89%e5%8c%85%e4%bb%93%e5%ba%93
 package("lsf")
     set_homepage(lsf_url)
-    set_description("json.")
+    set_description("json")
     set_urls(lsf_url)
     -- set_sourcedir(path.join(os.scriptdir(), "lib/lsf"))
     
@@ -106,6 +106,13 @@ target_end()
 --     set_default("false")
 --     add_files("test/src/a.cpp",{defines = "DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN"})
 --     add_tests("a_test")
+
+-- target("handshake_test")
+--     add_packages("spdlog")
+--     add_packages("asio") 
+--     add_packages(openssl_package_name)
+--     add_files("test/ssl/ssl_handshake.cpp")
+--     add_tests("handshake_test")
 
 -- 打包源码
 -- includes("@builtin/xpack")

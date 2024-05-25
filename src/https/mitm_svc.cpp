@@ -100,14 +100,14 @@ namespace hcpp
                     ssl_m->set_sni(sni_host_);
                 }
                 // XXX 这里不能用shared_from_this,因为回调会一直保持当前对象的智能指针,不释放
-                auto verify_fun = [verify_fun_ = verify_fun_, host = svc_host](bool preverified, auto &v_ctx)
+                auto verify_fun = [verify_fun = verify_fun_, host = svc_host](bool preverified, auto &v_ctx)
                 {
                     if (ssl::host_name_verification(host)(preverified, v_ctx))
                     {
-                        if (verify_fun_)
+                        if (verify_fun)
                         {
                             log::info("mitm_svc::make_memory: 校验{}开始", host);
-                            return verify_fun_(preverified, v_ctx);
+                            return verify_fun(preverified, v_ctx);
                         }
                         return true;
                     }
@@ -117,7 +117,7 @@ namespace hcpp
                     }
                 };
                 ssl_m->set_verify_callback(verify_fun);
-                //XXX 这里的async_handshake会阻塞住线程,因此要在单独的协程里再进行.所以当前函数不能调用在监听连接的时候
+                // XXX 这里的async_handshake会阻塞住线程,因此要在单独的协程里再进行.所以当前函数不能调用在监听连接的时候
                 co_await ssl_m->async_handshake();
                 m_ = ssl_m;
                 co_return;

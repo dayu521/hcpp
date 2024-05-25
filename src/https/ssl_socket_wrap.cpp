@@ -186,6 +186,7 @@ namespace hcpp
     {
         stream_type_ = ssl_stream_type::client;
         ctx_ = std::make_unique<ssl::context>(ssl::context::tls_client);
+        // ctx_ = std::make_unique<ssl::context>(ssl::context::sslv23);
         ssl_sock_ = std::make_unique<ssl_socket>(std::move(sock), *ctx_);
     }
 
@@ -238,7 +239,6 @@ namespace hcpp
 
     ssl_sock_mem::~ssl_sock_mem()
     {
-        ssl_sock_->set_verify_callback(verify_callback());
         try
         {
             ssl_sock_->lowest_layer().close();

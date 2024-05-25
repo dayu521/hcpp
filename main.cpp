@@ -113,7 +113,7 @@ int main(int argc, char **argv)
             }
         };
         // 为了防止对象在多线程情况下销毁出问题
-        // std::jthread t(create_thread, create_thread, 1);
+        std::jthread t(create_thread, create_thread, 1);
 
         io_context.run();
     }
