@@ -1,0 +1,19 @@
+https://web.stanford.edu/class/archive/cs/cs107/cs107.1202/resources/gdb
+https://www-users.cse.umn.edu/~kauffman/tutorials/gdb
+https://beej.us/guide/bggdb/
+https://web.stanford.edu/class/archive/cs/cs107/cs107.1234/resources/gdb_refcard.pdf
+https://sourceware.org/gdb/current/onlinedocs/gdb.html/TUI.html
+
+gdb基本命令行
+    up
+        当你出现段错误时,一般程序会停住,停住的位置常常是在其他库的源码中,特别是标准库
+        例如,std::string,这样的报错信息对我们没多大用,可以使用up,来向上跳出当前栈,进而跳到我们的代码处
+            https://discover.cs.ucsb.edu/commonerrors/tutorial/gdbtutorial.html
+    print <name>
+        打印变量值,print this print *this 等
+    info sources [regx]
+        列出当前关联的源文件,可以跟正则表达式匹配
+
+    save breakpoints bkp
+        保存断点信息到文件bkp,下次启动时使用-x选项加载
+            gdb -x filename <program>

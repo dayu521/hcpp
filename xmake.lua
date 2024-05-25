@@ -107,12 +107,12 @@ target_end()
 --     add_files("test/src/a.cpp",{defines = "DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN"})
 --     add_tests("a_test")
 
--- target("handshake_test")
---     add_packages("spdlog")
---     add_packages("asio") 
---     add_packages(openssl_package_name)
---     add_files("test/ssl/ssl_handshake.cpp")
---     add_tests("handshake_test")
+target("handshake_test")
+    add_packages("spdlog")
+    add_packages("asio") 
+    add_packages(openssl_package_name)
+    add_files("test/ssl/ssl_handshake.cpp")
+    add_tests("handshake_test")
 
 -- 打包源码
 -- includes("@builtin/xpack")
