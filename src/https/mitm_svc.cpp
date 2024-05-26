@@ -69,9 +69,10 @@ namespace hcpp
                         }
                         // 可以根据需要处理其他类型的Subject Alternative Name
                     }
+                    //XXX 一般服务器会发送证书链,包含多个证书,也就是校验函数会被调用多次
+                    //我们只对这些有主体名(SAN)的证书创建假证书
+                    pci.pubkey_ = make_pem_str(X509_get_X509_PUBKEY(cert));
                 }
-
-                pci.pubkey_ = make_pem_str(X509_get_X509_PUBKEY(cert));
                 return true;
             }
             else
@@ -81,7 +82,7 @@ namespace hcpp
             //  X509_NAME_oneline(X509_get_subject_name(cert), subject_name, sizeof(subject_name)); });
         };
     }
-    
+
     awaitable<void> mitm_svc::make_memory(std::string svc_host, std::string svc_service)
     {
         try
@@ -105,7 +106,6 @@ namespace hcpp
                     {
                         if (verify_fun)
                         {
-                            log::info("mitm_svc::make_memory: 校验{}开始", host);
                             return verify_fun(preverified, v_ctx);
                         }
                         return true;

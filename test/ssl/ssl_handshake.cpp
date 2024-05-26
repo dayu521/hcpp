@@ -1,4 +1,6 @@
-// BUG 复现三次校验证书
+// XXX 复现三次校验证书
+// 注意 这不是bug,因为服务器会发送不止一个证书
+// 可能设置其他校验规则,例如,校验深度 会改变校验三次的情况
 
 #include <asio/ssl.hpp>
 #include <asio/ip/tcp.hpp>
@@ -34,7 +36,7 @@ struct endpoint
 inline std::optional<endpoint> check_http_url(std::string url)
 {
     // thread_local static std::regex re{R"(^https?://([^/]+)/.*)"};
-    thread_local static std::regex re{R"((https?)://([^/]+)(?::(\d+))?(/.*)?)"};
+    thread_local static std::regex re{R"((https?)://([^/:]+)(?::(\d+))?(/.*)?)"};
     std::smatch sm;
     endpoint ep{};
     if (std::regex_search(url, sm, re))

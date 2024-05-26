@@ -19,6 +19,7 @@
 #include <spdlog/cfg/env.h>
 
 #include <thread>
+#include <cassert>
 
 #include "httpserver.h"
 #include "dns.h"
@@ -112,8 +113,9 @@ int main(int argc, char **argv)
                 spdlog::debug("线程{}退出成功", i);
             }
         };
+        auto core_size=std::thread::hardware_concurrency()%32;
         // 为了防止对象在多线程情况下销毁出问题
-        std::jthread t(create_thread, create_thread, 1);
+        std::jthread t(create_thread, create_thread, core_size);
 
         io_context.run();
     }
