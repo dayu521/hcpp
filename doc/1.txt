@@ -107,3 +107,11 @@ char async_result_initiate_memfn_helper(
 
 tls1.2 sni
     https://www.rfc-editor.org/rfc/rfc6066#section-3
+
+async_read_some函数的参数声明
+    第二个参数类型是完成token类型,且其后跟随一个扩展成默认参数的宏,这个默认参数在不对ip::tcp::socket对象包装时,扩展为void
+    但这个和它的参数类型不匹配(是完成函数的签名),所以在未提供显示参数时,调用会报错,类型不匹配
+
+    当ip::tcp::socket被包装成awaitable类型时,默认参数就会扩展为正确的类型.
+    参考
+        ASIO_DEFAULT_COMPLETION_TOKEN -> default_completion_token -> default_completion_token_impl

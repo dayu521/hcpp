@@ -13,7 +13,14 @@ gdb基本命令行
         打印变量值,print this print *this 等
     info sources [regx]
         列出当前关联的源文件,可以跟正则表达式匹配
-
     save breakpoints bkp
         保存断点信息到文件bkp,下次启动时使用-x选项加载
             gdb -x filename <program>
+    ctrl+x+a
+        打开或关闭tui
+    fs next
+        专注下个窗口
+    list <filename>
+        列出源文件中的源码
+    b <line> if <condition>
+        在指定行设置断点,当条件满足时才设置
