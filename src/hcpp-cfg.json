@@ -6,7 +6,8 @@
     "dns_provider_": [
         {
             "provider_": "1.1.1.1", //取一个名字
-            "host_": "1.1.1.1"
+            // "host_": "1.1.1.1"
+            "host_": "9.9.9.9"
         }
     ],
     "mitm_server_":{
@@ -53,7 +54,7 @@
         }
         ,
         {
-            "host_":"www.baidu.com",
+            "host_":"*.github.io",
             "svc_":"443",  
             "url_":"",      
             "mitm_":true,   

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <filesystem>
 #include <tuple>
+#include <regex>
 
 #include <spdlog/spdlog.h>
 
@@ -124,14 +125,39 @@ namespace hcpp
 
     bool config::config_to(mimt_https_server &mhs)
     {
+        static thread_local std::regex r(R"(^\*|((\*\.)+.+)$)");
+
+        std::map<unsigned int, std::pair<std::regex, std::string>> star_map;
+
         for (auto &&i : cs_.proxy_service_)
         {
             if (i.mitm_)
             {
+                std::smatch mr;
+                if (std::regex_match(i.host_, mr, r))
+                {
+                    auto nstar = mr.size();
+                    if (nstar > 2)
+                    {
+                        nstar -= 2;
+                    }
+                    assert(nstar > 0);
+                    if (i.host_ == "*")
+                    {
+                        i.host_ = "*.";
+                    }
+                    auto s = std::regex_replace(i.host_, std::regex(R"(\*\.)"), R"(.+\.)");
+                    log::info("构造的正则: {} -> {}", i.host_, s);
+                    star_map.insert({nstar, std::make_pair(std::regex(std::move(s)), i.svc_)});
+                }
+
                 mhs.tunnel_set_.insert({i.host_, i.svc_});
             }
         }
-
+        for (auto &&i : star_map)
+        {
+            mhs.tunnel_regx_list_.push_back(std::move(i.second));
+        }
         subject_identify si;
 
         auto si_tu = std::forward_as_tuple(cs_.ca_pkey_path_, cs_.ca_cert_path_);
@@ -145,7 +171,9 @@ namespace hcpp
                 if (path_prefix != nullptr)
                 {
                     i = path_prefix + i.substr(1);
-                }else{
+                }
+                else
+                {
                     log::warn("没有HOME系统变量,不处理 ~");
                 }
             }
@@ -246,7 +274,7 @@ namespace hcpp
                 {
                     ofs << si.pkey_pem_;
                     ofs.close();
-                    log::warn("config::config_to: 保存{}成功",cs_.ca_pkey_path_);
+                    log::warn("config::config_to: 保存{}成功", cs_.ca_pkey_path_);
                 }
                 else
                 {
@@ -261,7 +289,7 @@ namespace hcpp
                 {
                     ofs2 << si.cert_pem_;
                     ofs2.close();
-                    log::warn("config::config_to: 保存{}成功",cs_.ca_cert_path_);
+                    log::warn("config::config_to: 保存{}成功", cs_.ca_cert_path_);
                 }
                 else
                 {

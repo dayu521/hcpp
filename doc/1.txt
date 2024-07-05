@@ -76,6 +76,8 @@ vscode
     Shift+Alt+Right     扩大选择块
     Shift+Alt+Left      减小选择块
     Ctrl+,          打开设置面板
+    Ctrl+Shift+-  向前
+    Ctrl+Alt+-  向后
     
 常用操作
     定位当前打开的文件在左侧的位置      右键打开的文件编辑器的tab页,点击 reveal in explorer view

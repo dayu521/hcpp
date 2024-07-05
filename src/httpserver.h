@@ -13,6 +13,7 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <regex>
 
 namespace hcpp
 {
@@ -91,6 +92,7 @@ namespace hcpp
         std::optional<std::shared_ptr<tunnel>> find_tunnel(std::string_view svc_host, std::string_view svc_service);
 
         std::set<std::pair<std::string, std::string>> tunnel_set_;
+        std::vector<std::pair<std::regex, std::string>> tunnel_regx_list_;
 
         void set_ch(std::shared_ptr<socket_channel> ch);
 

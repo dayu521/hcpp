@@ -114,7 +114,7 @@ namespace hcpp
             {
                 std::unique_lock<std::shared_mutex> lock(shm_c_);
                 // 插入成功失败都无所谓
-                cache_.insert({svc, v});
+                cache_.insert(std::make_pair(svc, v));
             }
             m = v;
         }

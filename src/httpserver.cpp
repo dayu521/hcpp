@@ -9,6 +9,8 @@
 #include <limits>
 #include <chrono>
 #include <map>
+#include <ranges>
+#include <algorithm>
 
 #include <spdlog/spdlog.h>
 
@@ -136,7 +138,7 @@ namespace hcpp
                     }
                     else // TODO 用于控制自身行为
                     {
-                        if (auto p=base_handlers_.find({req.url_.data(),req.url_param_start_});p!=base_handlers_.end())
+                        if (auto p = base_handlers_.find({req.url_.data(), req.url_param_start_}); p != base_handlers_.end())
                         {
                             co_await ss->async_write_all((p->second)(req.url_));
                         }
@@ -158,8 +160,8 @@ namespace hcpp
             }
         }
     }
-    
-    void http_handler::add_handler(std::string_view path, std::function<std::string (std::string_view)> handler)
+
+    void http_handler::add_handler(std::string_view path, std::function<std::string(std::string_view)> handler)
     {
         base_handlers_.insert({path, handler});
     }
@@ -176,8 +178,7 @@ namespace hcpp
         hh.add_handler("/stop", [&ic](auto &&path)
                        { 
                         ic.stop(); 
-                        return "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 12\r\n\r\nserver stop!";
-                        });
+                        return "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 12\r\n\r\nserver stop!"; });
         for (;;)
         {
             try
@@ -299,7 +300,7 @@ namespace hcpp
         };
         std::jthread t(https_service);
 
-        std::unique_ptr<int, std::function<void(int *)>> ptr(new int(0), [ &executor](auto &&p)
+        std::unique_ptr<int, std::function<void(int *)>> ptr(new int(0), [&executor](auto &&p)
                                                              {
             log::info("work_guard分离");
             executor.stop();
@@ -313,10 +314,21 @@ namespace hcpp
 
     std::optional<std::shared_ptr<tunnel>> mimt_https_server::find_tunnel(std::string_view svc_host, std::string_view svc_service)
     {
+        auto can_proxy = false;
+
         if (tunnel_set_.contains({svc_host.data(), svc_service.data()}))
         {
-            return std::make_optional(std::make_shared<channel_tunnel>(channel_));
+            can_proxy = true;
         }
+        if (std::ranges::any_of(tunnel_regx_list_, [&svc_host, &svc_service](auto &&i) {
+                return std::regex_match(svc_host.data(),i.first)&&svc_service==i.second;
+            }))
+        {
+            can_proxy = true;
+        }
+
+        if (can_proxy)
+            return std::make_optional(std::make_shared<channel_tunnel>(channel_));
         return std::nullopt;
     }
 
@@ -332,7 +344,7 @@ namespace hcpp
 
     void mimt_https_server::set_ch(std::shared_ptr<socket_channel> ch)
     {
-        channel_=ch;
+        channel_ = ch;
     }
 
 } // namespace hcpp

@@ -68,12 +68,15 @@ int main(int argc, char **argv)
         }
         mhs.set_ch(std::make_shared<hcpp::socket_channel>(io_context, 10));
 
-        hs.attach_tunnel([&mhs](auto &&c, auto h, auto s)
-                         {
-                    if(auto r=mhs.find_tunnel(h,s);r){
-                        return *r;
-                    }
-                      return c; });
+        hs.attach_tunnel(
+            [&mhs](auto &&c, auto h, auto s)
+            {
+                if (auto r = mhs.find_tunnel(h, s); r)
+                {
+                    return *r;
+                }
+                return c;
+            });
 
         auto exit_handler = [&io_context](auto &&eptr)
         {
@@ -89,7 +92,7 @@ int main(int argc, char **argv)
             }
         };
 
-        co_spawn(io_context, hs.wait_http(c->get_port(),io_context), exit_handler);
+        co_spawn(io_context, hs.wait_http(c->get_port(), io_context), exit_handler);
         co_spawn(io_context, mhs.wait_c(c->get_proxy_service()), exit_handler);
 
         auto create_thread = [&](auto self, int i) -> void
@@ -113,7 +116,7 @@ int main(int argc, char **argv)
                 spdlog::debug("线程{}退出成功", i);
             }
         };
-        auto core_size=std::thread::hardware_concurrency()%32;
+        auto core_size = std::thread::hardware_concurrency() % 32;
         // 为了防止对象在多线程情况下销毁出问题
         std::jthread t(create_thread, create_thread, core_size);
 
