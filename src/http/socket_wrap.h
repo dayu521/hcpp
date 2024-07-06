@@ -53,7 +53,7 @@ namespace hcpp
         std::size_t write_index_ = 0;
     };
 
-    awaitable<std::optional<tcp_socket>> make_socket(std::string host, std::string service);
+    awaitable<std::optional<tcp_socket>> make_socket(std::string host, std::string service, bool use_doh = false);
 
 } // namespace hcpp
 

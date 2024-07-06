@@ -38,6 +38,7 @@ namespace hcpp
             spdlog::error("{} : {}", config_path, j.get_errors());
             throw std::runtime_error("解析config出错");
         }
+        //BUG https://github.com/dayu521/lsf/issues/5
         lsf::json_to_struct_ignore_absence(*res, cs_);
 
         // 主机映射配置文件
@@ -104,6 +105,51 @@ namespace hcpp
         }
     }
 
+    bool config::config_to(std::shared_ptr<http_handler> hh)
+    {
+        static thread_local std::regex r(R"(^\*|((\*\.)+.+)$)");
+
+        std::map<unsigned int, std::pair<std::regex, InterceptSet>> star_map;
+        for (auto &&i : cs_.proxy_service_)
+        {
+            if (i.doh_)
+            {
+                hh->add_intercept(std::make_pair(i.host_, i));
+            }
+            if (i.mitm_)
+            {
+                std::smatch mr;
+                if (std::regex_match(i.host_, mr, r))
+                {
+                    auto nstar = mr.size();
+                    if (nstar > 2)
+                    {
+                        nstar -= 2;
+                    }
+                    assert(nstar > 0);
+                    if (i.host_ == "*")
+                    {
+                        i.host_ = "*.";
+                    }
+                    auto s = std::regex_replace(i.host_, std::regex(R"(\*\.)"), R"(.+\.)");
+                    log::info("构造的正则: {} -> {}", i.host_, s);
+                    star_map.insert({nstar, std::make_pair(std::regex(std::move(s)), std::move(i))});
+                }
+                else
+                {
+                    hh->add_intercept(std::make_pair(i.host_, std::move(i)));
+                }
+            }
+        }
+
+        for (auto &&i : star_map)
+        {
+            hh->add_intercept(std::move(i.second));
+        }
+
+        return true;
+    }
+
     bool config::config_to(std::shared_ptr<slow_dns> dns)
     {
         for (auto &&i : cs_.proxy_service_)
@@ -125,39 +171,6 @@ namespace hcpp
 
     bool config::config_to(mimt_https_server &mhs)
     {
-        static thread_local std::regex r(R"(^\*|((\*\.)+.+)$)");
-
-        std::map<unsigned int, std::pair<std::regex, std::string>> star_map;
-
-        for (auto &&i : cs_.proxy_service_)
-        {
-            if (i.mitm_)
-            {
-                std::smatch mr;
-                if (std::regex_match(i.host_, mr, r))
-                {
-                    auto nstar = mr.size();
-                    if (nstar > 2)
-                    {
-                        nstar -= 2;
-                    }
-                    assert(nstar > 0);
-                    if (i.host_ == "*")
-                    {
-                        i.host_ = "*.";
-                    }
-                    auto s = std::regex_replace(i.host_, std::regex(R"(\*\.)"), R"(.+\.)");
-                    log::info("构造的正则: {} -> {}", i.host_, s);
-                    star_map.insert({nstar, std::make_pair(std::regex(std::move(s)), i.svc_)});
-                }
-
-                mhs.tunnel_set_.insert({i.host_, i.svc_});
-            }
-        }
-        for (auto &&i : star_map)
-        {
-            mhs.tunnel_regx_list_.push_back(std::move(i.second));
-        }
         subject_identify si;
 
         auto si_tu = std::forward_as_tuple(cs_.ca_pkey_path_, cs_.ca_cert_path_);

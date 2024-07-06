@@ -56,9 +56,9 @@ namespace hcpp
 
         std::string dns_path_;
 
-        awaitable<edp_lists> resolve(host_edp hedp);
+        awaitable<edp_lists> resolve(host_edp hedp, bool doh = false);
 
-        awaitable<void> async_resolve(std::shared_ptr<channel> cc, host_edp hedp);
+        awaitable<void> async_resolve(std::shared_ptr<channel> cc, host_edp hedp, bool doh = false);
 
         void remove(host_edp hedp);
 
@@ -139,9 +139,9 @@ namespace hcpp
         return p;
     }
 
-    awaitable<edp_lists> slow_dns::resolve(host_edp hedp)
+    awaitable<edp_lists> slow_dns::resolve(host_edp hedp, bool doh)
     {
-        auto ip_edp = co_await imp_->resolve(hedp);
+        auto ip_edp = co_await imp_->resolve(hedp, doh);
 
         for (auto &&i : ip_edp)
         {
@@ -232,7 +232,7 @@ namespace hcpp
     {
     }
 
-    awaitable<edp_lists> slow_dns::slow_dns_imp::resolve(host_edp hedp)
+    awaitable<edp_lists> slow_dns::slow_dns_imp::resolve(host_edp hedp, bool doh)
     {
         {
             std::shared_lock<std::shared_mutex> m(smutex_);
@@ -256,7 +256,7 @@ namespace hcpp
         //  解析时可以发现其他消费者是否已经解析,进而跳过不必要的解析.解析完成 发送消息唤醒
 
         // HACK 不直接使用channel https://github.com/chriskohlhoff/asio/issues/1175
-        asio::co_spawn(ex, async_resolve(cc, hedp), detached);
+        asio::co_spawn(ex, async_resolve(cc, hedp, doh), detached);
 
         std::variant<edp_lists, std::monostate> results = co_await (cc->async_receive() || t.async_wait());
         if (results.index() != 0)
@@ -267,7 +267,9 @@ namespace hcpp
     }
 
     // FIXME 注意,如果使用asio::coro,这里就有线程问题,下面的加锁无效,仍旧出现死锁问题
-    awaitable<void> slow_dns::slow_dns_imp::async_resolve(std::shared_ptr<channel> cc, host_edp hedp)
+    // Asio 1.30.2
+    // Fixed a compile error that occurred when channels and experimental::coro were both used in the same translation unit.
+    awaitable<void> slow_dns::slow_dns_imp::async_resolve(std::shared_ptr<channel> cc, host_edp hedp, bool doh)
     {
         /// 协程内,协程切换时,一定不能持有锁,它都可能会和其他协程持有的锁互斥,除非所有都是共享锁
 
@@ -294,7 +296,7 @@ namespace hcpp
         try
         {
 
-            if (doh_filter_.contains(hedp.first))
+            if (doh)
             {
                 el = co_await hcpp::resolve(hedp, dns_providers_);
             }
@@ -315,7 +317,7 @@ namespace hcpp
         }
         catch (const std::exception &e)
         {
-            log::error("slow_dns::slow_dns_imp::async_resolve: 解析失败 {}",e.what());
+            log::error("slow_dns::slow_dns_imp::async_resolve: 解析失败 {}", e.what());
             std::unique_lock<std::mutex> m(rmutex_);
             resolve_running_.erase(hedp);
             throw;

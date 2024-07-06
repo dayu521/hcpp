@@ -66,7 +66,7 @@ namespace hcpp
         virtual bool ok() override;
         virtual void reset() override;
         virtual void close() override;
-        virtual bool alive()override;
+        virtual bool alive() override;
 
     private:
         std::shared_ptr<memory> m_;
@@ -92,14 +92,17 @@ namespace hcpp
     public:
         http_svc_keeper(std::shared_ptr<svc_cache> cache, std::shared_ptr<slow_dns> dns);
 
-        awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service) override;
+        awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service, std::shared_ptr<InterceptSet> is) override;
 
-        awaitable<std::shared_ptr<tunnel>> wait_tunnel(std::string svc_host, std::string svc_service) override;
+        awaitable<std::shared_ptr<tunnel>> wait_tunnel(std::string svc_host, std::string svc_service, std::shared_ptr<InterceptSet> is) override;
 
     private:
         std::shared_ptr<slow_dns> slow_dns_;
         std::shared_ptr<svc_cache> endpoint_cache_;
         std::shared_ptr<memory> m_;
+
+        std::string host_;
+        std::string service_;
     };
 
     class svc_cache

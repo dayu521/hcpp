@@ -28,7 +28,7 @@ namespace hcpp
         static std::shared_ptr<slow_dns> get_slow_dns();
 
     public:
-        awaitable<edp_lists> resolve(host_edp hedp);
+        awaitable<edp_lists> resolve(host_edp hedp,bool doh = false);
         void remove_svc(const host_edp & hedp, std::string_view ip);
 
         void load_hm(const std::vector<host_mapping> & hm);

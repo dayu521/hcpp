@@ -18,7 +18,7 @@ namespace hcpp
 
     using namespace asio::buffer_literals;
 
-    awaitable<std::shared_ptr<memory>> mitm_svc::wait(std::string svc_host, std::string svc_service)
+    awaitable<std::shared_ptr<memory>> mitm_svc::wait(std::string svc_host, std::string svc_service,std::shared_ptr<InterceptSet> is)
     {
         if (!m_)
         {
@@ -83,11 +83,11 @@ namespace hcpp
         };
     }
 
-    awaitable<void> mitm_svc::make_memory(std::string svc_host, std::string svc_service)
+    awaitable<void> mitm_svc::make_memory(std::string svc_host, std::string svc_service,bool use_doh)
     {
         try
         {
-            if (auto sock = co_await make_socket(svc_host, svc_service); sock)
+            if (auto sock = co_await make_socket(svc_host, svc_service,use_doh); sock)
             {
                 auto ssl_m = std::make_shared<ssl_sock_mem>(svc_host, svc_service);
                 ssl_m->init_client(std::move(*sock));
@@ -190,6 +190,7 @@ namespace hcpp
         chc_ = std::make_shared<channel_client>();
         chc_->host_ = host;
         chc_->service_ = service;
+        chc_->is_=is_;
         m->check(*this);
         co_await channel_->async_send(asio::error_code{}, chc_);
     }

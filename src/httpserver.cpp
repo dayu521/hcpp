@@ -21,7 +21,12 @@ namespace hcpp
 
     awaitable<void> http_handler::http_do(std::unique_ptr<http_client> client, std::shared_ptr<service_keeper> sk)
     {
+        std::string host = "";
+        std::string svc = "";
+        std::shared_ptr<InterceptSet> is = nullptr; // HACK  //TODO
+
         co_await client->init();
+
         while (true)
         {
             auto ss = client->get_memory();
@@ -36,25 +41,45 @@ namespace hcpp
 
             if (auto p2 = co_await p1.parser_reuqest_line(req); p2)
             {
+                if (!(req.host_ == host && req.port_ == svc))
+                {
+                    if (auto opt = find(req.host_); opt)
+                    {
+                        is = std::make_shared<InterceptSet>(std::move(*opt));
+                        if (!is->url_.empty())
+                        {
+                            // 替换主机
+                            req.host_ = is->url_;
+                            is->host_ = is->url_;
+                        }
+                    }else{
+                        is = std::make_shared<InterceptSet>();
+                    }
+                    host = req.host_;
+                    svc = req.port_;
+                }
+
                 if (auto p3 = co_await (*p2).parser_headers(req); p3)
                 {
                     if (req.method_ == http_request::CONNECT)
                     {
-                        auto t = co_await sk->wait_tunnel(req.host_, req.port_);
+                        auto t = co_await sk->wait_tunnel(req.host_, req.port_, is);
                         co_await t->make_tunnel(ss, req.host_, req.port_);
                         co_return;
                     }
-                    else if (!req.host_.empty())
+                    else if (!req.host_.empty()) // BUG 普通http代理
                     {
                         req.headers_.erase("proxy-connection");
+                        req.headers_.erase("host");
                         std::string req_line = req.method_str_ + " " + req.url_ + " " + req.version_ + "\r\n";
                         for (auto &&header : req.headers_)
                         {
                             req_line += header.second;
                         }
-                        req_line += "\r\n";
+                        req_line+="Host: "+req.host_;
+                        req_line += "\r\n\r\n";
 
-                        auto w = co_await sk->wait(req.host_, req.port_);
+                        auto w = co_await sk->wait(req.host_, req.port_, is);
 
                         log::info("http_do:请求开始\n{}{}", req.host_, req.url_);
 
@@ -136,7 +161,7 @@ namespace hcpp
                             }
                         }
                     }
-                    else // TODO 用于控制自身行为
+                    else // TODO 普通http请求.目前用于控制自身行为
                     {
                         if (auto p = base_handlers_.find({req.url_.data(), req.url_param_start_}); p != base_handlers_.end())
                         {
@@ -161,32 +186,59 @@ namespace hcpp
         }
     }
 
-    void http_handler::add_handler(std::string_view path, std::function<std::string(std::string_view)> handler)
+    void http_handler::add_intercept(std::pair<std::string, InterceptSet> i)
+    {
+        direct_filter_.emplace(std::move(i));
+    }
+
+    void http_handler::add_intercept(std::pair<std::regex, InterceptSet> i)
+    {
+        regx_filter_.emplace(regx_filter_.end(), std::move(i));
+    }
+
+    std::optional<InterceptSet> http_handler::find(std::string_view host)
+    {
+        std::optional<InterceptSet> r = std::nullopt;
+
+        if (auto i = direct_filter_.find(host.data()); i != direct_filter_.end())
+        {
+            r = std::make_optional(i->second);
+        }
+        else if (auto i = std::ranges::find_if(regx_filter_, [host](auto &&i)
+                                               { return std::regex_match(host.data(), i.first); });
+                 i != regx_filter_.end())
+        {
+            r = std::make_optional(i->second);
+        }
+
+        return r;
+    }
+
+    void http_handler::add_request_handler(std::string_view path, std::function<std::string(std::string_view)> handler)
     {
         base_handlers_.insert({path, handler});
     }
 
     using tcp_acceptor = use_awaitable_t<>::as_default_on_t<ip::tcp::acceptor>;
 
-    awaitable<void> httpserver::wait_http(uint16_t port, io_context &ic)
+    std::shared_ptr<service_keeper> httpserver::make_sk()
+    {
+        return std::make_shared<http_svc_keeper>(make_threadlocal_svc_cache(), slow_dns::get_slow_dns());
+    }
+
+    awaitable<void> httpserver::wait_http(uint16_t port)
     {
         auto executor = co_await this_coro::executor;
 
         tcp_acceptor acceptor(executor, {ip::tcp::v4(), port});
         spdlog::debug("http_server监听端口:{}", acceptor.local_endpoint().port());
-        http_handler hh;
-        hh.add_handler("/stop", [&ic](auto &&path)
-                       { 
-                        ic.stop(); 
-                        return "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 12\r\n\r\nserver stop!"; });
+
         for (;;)
         {
             try
             {
                 auto socket = co_await acceptor.async_accept();
-                auto sk = std::make_unique<http_svc_keeper>(make_threadlocal_svc_cache(), slow_dns::get_slow_dns());
-                auto hsk = std::make_shared<hack_sk>(std::move(sk), ta_);
-                co_spawn(executor, hh.http_do(std::make_unique<http_client>(std::move(socket)), std::move(hsk)), detached);
+                co_spawn(executor, handler_->http_do(std::make_unique<http_client>(std::move(socket)), make_sk()), detached);
             }
             catch (const std::exception &e)
             {
@@ -195,32 +247,29 @@ namespace hcpp
         }
     }
 
-    void httpserver::attach_tunnel(tunnel_advice w)
+    void httpserver::set_http_handler(std::shared_ptr<http_handler> handler)
     {
-        ta_ = w;
+        handler_ = handler;
+    }
+
+    void httpserver::set_service_keeper(std::shared_ptr<service_keeper> sk)
+    {
+        sk_ = sk;
     }
 
     static thread_local std::unordered_map<std::string, subject_identify> server_subject_map;
 
-    awaitable<void> mimt_https_server::wait_c(std::vector<proxy_service> ps)
+    awaitable<void> mimt_https_server::wait_c()
     {
         if (!ca_subject_)
         {
             throw std::runtime_error("ca_subject_ is null");
         }
 
-        std::unordered_map<std::string, proxy_service> ps_map;
-        for (auto &&i : ps)
-        {
-            auto k = i.host_;
-            ps_map.emplace(k, std::move(i));
-        }
-
-        const decltype(ps_map) &cr_ps_map = ps_map;
         io_context executor;
 
         // 在当前协程运行
-        auto https_listener = [c = channel_, cr_ps_map, ca_subject = ca_subject_](io_context &executor) -> awaitable<void>
+        auto https_listener = [c = channel_, hander = handler_, ca_subject = ca_subject_](io_context &executor) -> awaitable<void>
         {
             http_handler hh;
             for (;;)
@@ -240,19 +289,21 @@ namespace hcpp
                     // TODO 抽象工厂方法
                     auto sk = std::make_shared<mitm_svc>();
 
-                    hsc->init_ = [&cr_ps_map, sk, cc, ca_subject](https_client &self) -> awaitable<void>
+                    hsc->init_ = [hander, sk, cc, ca_subject](https_client &self) -> awaitable<void>
                     {
-                        subject_identify si{};
-                        if (auto i = cr_ps_map.find(self.host_); i != cr_ps_map.end())
+                        auto is = cc->is_;
+                        if (!is)
                         {
-                            sk->set_sni_host(i->second.sni_host_);
-                            if (i->second.close_sni_)
-                                sk->close_sni();
+                            is = std::make_shared<InterceptSet>();
                         }
+                        sk->set_sni_host(is->sni_host_);
+                        if (is->close_sni_)
+                            sk->close_sni();
+                        subject_identify si{};
 
                         if (auto i = server_subject_map.find(self.host_); i != server_subject_map.end())
                         {
-                            co_await sk->make_memory(self.host_, self.service_);
+                            co_await sk->make_memory(self.host_, self.service_, is->doh_);
                             si = i->second;
                         }
                         else
@@ -260,7 +311,7 @@ namespace hcpp
                             part_cert_info pci{};
                             sk->add_SAN_collector(pci);
                             // 利用握手获取访问的主机的证书中的dns
-                            co_await sk->make_memory(self.host_, self.service_);
+                            co_await sk->make_memory(self.host_, self.service_, is->doh_);
                             // 创建假的证书
                             si = sk->make_fake_server_id(pci.dns_name_, ca_subject);
                             // XXX 插入失败不用管
@@ -312,26 +363,6 @@ namespace hcpp
         co_return;
     }
 
-    std::optional<std::shared_ptr<tunnel>> mimt_https_server::find_tunnel(std::string_view svc_host, std::string_view svc_service)
-    {
-        auto can_proxy = false;
-
-        if (tunnel_set_.contains({svc_host.data(), svc_service.data()}))
-        {
-            can_proxy = true;
-        }
-        if (std::ranges::any_of(tunnel_regx_list_, [&svc_host, &svc_service](auto &&i) {
-                return std::regex_match(svc_host.data(),i.first)&&svc_service==i.second;
-            }))
-        {
-            can_proxy = true;
-        }
-
-        if (can_proxy)
-            return std::make_optional(std::make_shared<channel_tunnel>(channel_));
-        return std::nullopt;
-    }
-
     void mimt_https_server::set_ca(subject_identify ca_subject)
     {
         ca_subject_ = std::make_shared<subject_identify>(std::move(ca_subject));
@@ -340,6 +371,11 @@ namespace hcpp
     void mimt_https_server::set_root_verify_store_path(std::string_view root_verify_store_path)
     {
         root_verify_store_path_ = root_verify_store_path;
+    }
+
+    std::shared_ptr<service_keeper> mimt_https_server::make_sk()
+    {
+        return std::make_shared<hack_sk>(httpserver::make_sk(), channel_);
     }
 
     void mimt_https_server::set_ch(std::shared_ptr<socket_channel> ch)

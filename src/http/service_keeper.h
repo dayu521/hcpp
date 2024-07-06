@@ -3,6 +3,7 @@
 
 #include "tunnel.h"
 #include "hmemory.h"
+#include "intercept.h"
 
 #include <memory>
 #include <string>
@@ -12,9 +13,11 @@ namespace hcpp
     class service_keeper
     {
     public:
-        virtual awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service) = 0;
+        //普通http代理
+        virtual awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service , std::shared_ptr<InterceptSet> is) = 0;
 
-        virtual awaitable<std::shared_ptr<tunnel>> wait_tunnel(std::string svc_host, std::string svc_service) = 0;
+        //http隧道代理
+        virtual awaitable<std::shared_ptr<tunnel>> wait_tunnel(std::string svc_host, std::string svc_service,std::shared_ptr<InterceptSet> is) = 0;
 
     public:
         virtual ~service_keeper() = default;

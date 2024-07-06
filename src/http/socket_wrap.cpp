@@ -177,11 +177,11 @@ namespace hcpp
         m.make(std::move(sock_));
     }
 
-    awaitable<std::optional<tcp_socket>> make_socket(std::string host, std::string service)
+    awaitable<std::optional<tcp_socket>> make_socket(std::string host, std::string service, bool use_doh)
     {
         auto svc = host + ":" + service;
 
-        auto host_list = co_await slow_dns::get_slow_dns()->resolve({host, service});
+        auto host_list = co_await slow_dns::get_slow_dns()->resolve({host, service},use_doh);
 
         auto e = co_await this_coro::executor;
         tcp_socket sock(e);

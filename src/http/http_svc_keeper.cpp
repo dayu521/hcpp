@@ -28,26 +28,30 @@ namespace hcpp
     {
     }
 
-    awaitable<std::shared_ptr<memory>> http_svc_keeper::wait(std::string svc_host, std::string svc_service)
+    awaitable<std::shared_ptr<memory>> http_svc_keeper::wait(std::string svc_host, std::string svc_service, std::shared_ptr<InterceptSet> is)
     {
-        if (!m_)
+        if (m_ && host_ == svc_host && service_ == svc_service)
         {
-            if (auto o = co_await make_socket(svc_host, svc_service); o)
-            {
-                m_ = std::make_shared<socket_memory>(std::move(*o));
-            }
-            else
-            {
-                m_ = std::make_shared<failed_mem>();
-            }
+            co_return m_;
         }
+
+        auto use_doh = is ? is->doh_ : false;
+        if (auto o = co_await make_socket(svc_host, svc_service, use_doh); o)
+        {
+            m_ = std::make_shared<socket_memory>(std::move(*o));
+        }
+        else
+        {
+            m_ = std::make_shared<failed_mem>();
+        }
+
         co_return m_;
         // auto svc_endpoint = co_await endpoint_cache_->get_endpoint(svc_host, svc_service, slow_dns_);
 
         // co_return std::make_shared<service_worker>(svc_endpoint, svc_host, svc_service, endpoint_cache_);
     }
 
-    awaitable<std::shared_ptr<tunnel>> http_svc_keeper::wait_tunnel(std::string svc_host, std::string svc_service)
+    awaitable<std::shared_ptr<tunnel>> http_svc_keeper::wait_tunnel(std::string svc_host, std::string svc_service, std::shared_ptr<InterceptSet> is)
     {
         co_return std::make_shared<socket_tunnel>();
     }

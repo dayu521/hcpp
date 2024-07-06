@@ -9,6 +9,8 @@
 #include <functional>
 #include <cstdint>
 
+#include "http/intercept.h"
+
 namespace hcpp
 {
     // dns mapping config
@@ -29,17 +31,23 @@ namespace hcpp
         JS_OBJECT(JS_MEMBER(provider_), JS_MEMBER(host_));
     };
 
-    struct proxy_service
+    struct proxy_service : InterceptSet
     {
-        std::string host_;
-        std::string svc_; // 端口或服务名.例如 http https
-        std::string url_;
-        bool mitm_ = false;
-        bool doh_ = false;
-        bool close_sni_ = false; // 默认就是false.优先级高于sni_host_
-        std::string sni_host_;   // 假的主机名
+        // std::string host_;
+        // std::string svc_; // 端口或服务名.例如 http https
+        // std::string url_;
+        // bool mitm_ = false;
+        // bool doh_ = false;
+        // bool close_sni_ = false; // 默认就是false.优先级高于sni_host_
+        // std::string sni_host_;   // 假的主机名
 
-        JS_OBJECT(JS_MEMBER(host_), JS_MEMBER(svc_), JS_MEMBER(url_), JS_MEMBER(mitm_), JS_MEMBER(doh_), JS_MEMBER(close_sni_), JS_MEMBER(sni_host_));
+        JS_OBJECT(JS_MEMBER(host_),
+                  JS_MEMBER(svc_),
+                  JS_MEMBER(url_),
+                  JS_MEMBER(mitm_),
+                  JS_MEMBER(doh_),
+                  JS_MEMBER(close_sni_),
+                  JS_MEMBER(sni_host_));
     };
 
     struct config_struct
@@ -64,6 +72,7 @@ namespace hcpp
 
     class slow_dns;
     class mimt_https_server;
+    class http_handler;
 
     class config
     {
@@ -76,6 +85,7 @@ namespace hcpp
         config(const config &) = delete;
         ~config();
 
+        bool config_to(std::shared_ptr<http_handler> hs);
         bool config_to(std::shared_ptr<slow_dns> dns);
         bool config_to(std::shared_ptr<mimt_https_server> mhs);
         bool config_to(mimt_https_server &mhs);

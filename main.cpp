@@ -60,23 +60,20 @@ int main(int argc, char **argv)
         signals.async_wait([&](auto, auto)
                            { io_context.stop(); });
 
-        hcpp::httpserver hs;
+        auto hh = std::make_shared<hcpp::http_handler>();
+        c->config_to(hh);
+        hh->add_request_handler("/stop", [&io_context](auto &&path)
+                                      { 
+                        io_context.stop(); 
+                        return "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 12\r\n\r\nserver stop!"; });
+
         hcpp::mimt_https_server mhs;
+        mhs.set_http_handler(hh);
         if (!c->config_to(mhs))
         {
             return -1;
         }
         mhs.set_ch(std::make_shared<hcpp::socket_channel>(io_context, 10));
-
-        hs.attach_tunnel(
-            [&mhs](auto &&c, auto h, auto s)
-            {
-                if (auto r = mhs.find_tunnel(h, s); r)
-                {
-                    return *r;
-                }
-                return c;
-            });
 
         auto exit_handler = [&io_context](auto &&eptr)
         {
@@ -92,8 +89,8 @@ int main(int argc, char **argv)
             }
         };
 
-        co_spawn(io_context, hs.wait_http(c->get_port(), io_context), exit_handler);
-        co_spawn(io_context, mhs.wait_c(c->get_proxy_service()), exit_handler);
+        co_spawn(io_context, mhs.wait_http(c->get_port()), exit_handler);
+        co_spawn(io_context, mhs.wait_c(), exit_handler);
 
         auto create_thread = [&](auto self, int i) -> void
         {

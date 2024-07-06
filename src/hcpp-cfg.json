@@ -46,6 +46,7 @@
         {
             "host_":"gitee.com",
             "svc_":"443",   
+            // "url_":"www.baidu.com",  //暂时的行为是替换host_,拦截去访问另外的主机,但不能使用session,cookie  ,所以不能登陆    
             "url_":"",      
             "mitm_":true,   
             "doh_":false,

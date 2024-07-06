@@ -7,6 +7,7 @@
 #include "http/tunnel.h"
 #include "http/thack.h"
 #include "http/httpclient.h"
+#include "http/intercept.h"
 
 #include <string>
 #include <vector>
@@ -28,6 +29,7 @@ namespace hcpp
         std::string host_;
         std::string service_;
         std::unique_ptr<tcp_socket> sock_;
+        std::shared_ptr<InterceptSet> is_;
     };
 
     using socket_channel = asio::use_awaitable_t<>::as_default_on_t<concurrent_channel<void(asio::error_code, std::shared_ptr<channel_client>)>>;
@@ -64,7 +66,7 @@ namespace hcpp
         {
             return std::make_unique<ssl_mem_factory>();
         }
-        awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service) override;
+        awaitable<std::shared_ptr<memory>> wait(std::string svc_host, std::string svc_service,std::shared_ptr<InterceptSet> is) override;
 
     public:
         mitm_svc();
@@ -72,7 +74,7 @@ namespace hcpp
         void close_sni();
         void add_SAN_collector(part_cert_info &pci);
 
-        awaitable<void> make_memory(std::string svc_host, std::string svc_service);
+        awaitable<void> make_memory(std::string svc_host, std::string svc_service,bool use_doh=false);
 
         subject_identify make_fake_server_id(const std::vector<std::string> &dns_name, std::shared_ptr<subject_identify> ca_si);
 
@@ -112,11 +114,12 @@ namespace hcpp
         virtual void make(std::unique_ptr<ssl_socket> sock) override;
 
     public:
-        channel_tunnel(std::shared_ptr<socket_channel> channel) : channel_(channel) {}
+        channel_tunnel(std::shared_ptr<socket_channel> channel,std::shared_ptr<InterceptSet> is) : channel_(channel), is_(is) {}
 
     private:
         std::shared_ptr<socket_channel> channel_;
         std::shared_ptr<channel_client> chc_;
+        std::shared_ptr<InterceptSet> is_;
     };
 } // namespace hcpp
 
