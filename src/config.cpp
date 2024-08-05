@@ -38,7 +38,7 @@ namespace hcpp
             spdlog::error("{} : {}", config_path, j.get_errors());
             throw std::runtime_error("解析config出错");
         }
-        //BUG https://github.com/dayu521/lsf/issues/5
+        // BUG https://github.com/dayu521/lsf/issues/5
         lsf::json_to_struct_ignore_absence(*res, cs_);
 
         // 主机映射配置文件
@@ -112,33 +112,26 @@ namespace hcpp
         std::map<unsigned int, std::pair<std::regex, InterceptSet>> star_map;
         for (auto &&i : cs_.proxy_service_)
         {
-            if (i.doh_)
+            std::smatch mr;
+            if (std::regex_match(i.host_, mr, r))
             {
-                hh->add_intercept(std::make_pair(i.host_, i));
+                auto nstar = mr.size();
+                if (nstar > 2)
+                {
+                    nstar -= 2;
+                }
+                assert(nstar > 0);
+                if (i.host_ == "*")
+                {
+                    i.host_ = "*.";
+                }
+                auto s = std::regex_replace(i.host_, std::regex(R"(\*\.)"), R"(.+\.)");
+                log::info("构造的正则: {} -> {}", i.host_, s);
+                star_map.insert({nstar, std::make_pair(std::regex(std::move(s)), std::move(i))});
             }
-            if (i.mitm_)
+            else
             {
-                std::smatch mr;
-                if (std::regex_match(i.host_, mr, r))
-                {
-                    auto nstar = mr.size();
-                    if (nstar > 2)
-                    {
-                        nstar -= 2;
-                    }
-                    assert(nstar > 0);
-                    if (i.host_ == "*")
-                    {
-                        i.host_ = "*.";
-                    }
-                    auto s = std::regex_replace(i.host_, std::regex(R"(\*\.)"), R"(.+\.)");
-                    log::info("构造的正则: {} -> {}", i.host_, s);
-                    star_map.insert({nstar, std::make_pair(std::regex(std::move(s)), std::move(i))});
-                }
-                else
-                {
-                    hh->add_intercept(std::make_pair(i.host_, std::move(i)));
-                }
+                hh->add_intercept(std::make_pair(i.host_, std::move(i)));
             }
         }
 
