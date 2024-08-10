@@ -7,6 +7,7 @@ set_warnings("all")
 set_languages("c++20")
 
 option("github_action")
+option("lsf_debug")
 
 local lsf_url="https://gitee.com/californiacat/lsf.git"
 
@@ -34,7 +35,13 @@ local openssl_package_name = ""
     
 local platform_cpp_file=""
 
-add_requires("lsf")
+if has_config("lsf_debug") then
+    add_requires("lsf",{configs = {debug = true}})
+
+else 
+    add_requires("lsf")
+end
+
 
 if is_os("windows") then
     set_encodings("utf-8")
