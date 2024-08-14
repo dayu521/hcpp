@@ -16,17 +16,17 @@ namespace hcpp
     // dns mapping config
     struct host_mapping
     {
-        std::string host_;
-        std::string port_;
-        std::vector<std::string> ips_;
+        std::string host_ = "localhost";
+        std::string port_ = "8080";
+        std::vector<std::string> ips_ = {"127.0.0.1"};
 
         JS_OBJECT(JS_MEMBER(host_), JS_MEMBER(port_), JS_MEMBER(ips_));
     };
 
     struct dns_provider
     {
-        std::string provider_;
-        std::string host_;
+        std::string provider_ = "localhost";
+        std::string host_ = "127.0.0.1";
 
         JS_OBJECT(JS_MEMBER(provider_), JS_MEMBER(host_));
     };
