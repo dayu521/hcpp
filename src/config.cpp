@@ -38,7 +38,7 @@ namespace hcpp
             spdlog::error("{} : {}", config_path, j.get_errors());
             throw std::runtime_error("解析config出错");
         }
-        // BUG https://github.com/dayu521/lsf/issues/5
+        // https://github.com/dayu521/lsf/issues/5
         lsf::json_to_struct_ignore_absence(*res, cs_);
 
         // 主机映射配置文件
